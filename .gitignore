@@ -1,0 +1,9 @@
+*_test
+/dist
+*~
+*.swp
+cover.out
+*.prof
+testdata
+tags
+*_string.go
