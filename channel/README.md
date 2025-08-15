@@ -182,34 +182,5 @@ The VT will always use the most recently written row/col value.
 
 The ROM channel contains the boot ROM for the system. It is bitstream of 32 bit wide words (2 bits of arena ID, 10 bits of IP data, and 20 bits of opcode), which is loaded in at machine reset.
 
-### Reset
+See [cpu/README.md](cpu/README.md) for bootstrap details.
 
-The reset state of the machine is:
-
-- All CAPP values are randomized.
-- CPU registers are preloaded with the following instructions:
-  - r0: `.list.of 0 immz immz         ; Select all of the CAPP`
-  - r1: `.list.all 0 immz immz        ; Tag all items`
-  - r2: `.list.write 0 immnz immnz    ; Replace all values with 0xFFFFFFFF`
-  - r3: `.io.fetch rom immz immnz     ; Load boot ROM into CAPP`
-  - r4: `.list.not 0 immz immz        ; Now, only the program is tagged`
-  - r5: `.alu.set ip immz immnz      ; Set IP to 0x00000000 (exec from CAPP)`
-- CPU IP is set to 0x8000000 (execute-from-registers)
-
-### Bootstrap
-
-- CPU executes code in registers
-- CPU's IP is set to 0xFFFFFFFF by code in r5
-- OS boot code is as follows:
-  - Select Drum 0, Ring 255 from the Depot
-  - Read into CAPP as a program in IO arena.
-  - Select boot program in CAPP
-  - Write trampoline into registers:
-    - r0: `.list.write 0 immnz immnz  ; Free boot program`
-    - r1: `.imm_hi32 0x8000           ; Arena ID for program`
-    - r2: `.imm_hi32 0xc000           ; Arena mask`
-    - r3: `.list.of 0 immz imm        ; Select IO program in IO area`
-    - r4: `.list.write 0 immnz imm    ; Write program ID to list`
-    - r5: `.alu.set ip immz immnz    ; Set IP to 0x00000000 (exec from CAPP)`
-  - CPU IP is set to 0x8000000 (execute-from-registers)
-  - Control is transferred to the program from Drum 0, Ring 255.

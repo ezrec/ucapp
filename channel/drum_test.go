@@ -1,0 +1,75 @@
+package channel
+
+import (
+	"iter"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func slum(size int, items ...uint8) (arr []uint8) {
+	arr = make([]uint8, len(items), size)
+	for n, item := range items {
+		arr[n] = item
+	}
+	return
+}
+
+func TestDrum(t *testing.T) {
+	assert := assert.New(t)
+
+	drum := &Drum{}
+
+	drum.Rings = map[uint8](*Ring){
+		// 0 does not exist,
+		1: &Ring{Data: slum(8)},
+		3: &Ring{WriteIndex: 4 * 8, Data: slum(8, 1, 2, 3, 4)},
+	}
+
+	drum.Reset()
+
+	// Simple write to default ring.
+	SendAsUint8(drum, 0x08)
+	SendAsUint8(drum, 0x19)
+	SendAsUint8(drum, 0x2a)
+
+	// Select new ring (empty)
+	drum.Alert(1)
+	ring, ok := drum.Await()
+	assert.True(ok)
+	assert.Equal(uint32(0), ring)
+
+	// Select new ring (nil)
+	drum.Alert(2)
+	ring, ok = drum.Await()
+	assert.True(ok)
+	assert.Equal(uint32(0), ring)
+
+	// Select new ring (has content)
+	drum.Alert(3)
+	ring, ok = drum.Await()
+	assert.True(ok)
+	assert.Equal(uint32(4), ring)
+
+	seq := ReceiveAsUint8(drum)
+	get, stop := iter.Pull(seq)
+	for n := range 3 {
+		v, ok := get()
+		assert.True(ok)
+		assert.Equal(uint8(n+1), v)
+	}
+	stop()
+
+	// append to the end of the drum
+	SendAsUint8(drum, 0x07)
+	SendAsUint8(drum, 0x0b)
+
+	expecting := map[uint8](*Ring){
+		0: &Ring{Capacity: RING_DEFAULT_CAPACITY, WriteIndex: 24, Data: slum(8, 0x08, 0x19, 0x2a)},
+		1: &Ring{Capacity: 64, AlertChannel: AlertChannel{FromDevice: []uint32{}}, Data: slum(8)},
+		2: &Ring{Capacity: RING_DEFAULT_CAPACITY, AlertChannel: AlertChannel{FromDevice: []uint32{}}, Data: []uint8{}},
+		3: &Ring{Capacity: 64, AlertChannel: AlertChannel{FromDevice: []uint32{}}, WriteIndex: 48, ReadIndex: 24, Data: slum(8, 1, 2, 3, 4, 7, 11)},
+	}
+
+	assert.Equal(expecting, drum.Rings)
+}

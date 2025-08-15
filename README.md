@@ -38,6 +38,10 @@ The μCAPP is composed of the following components:
     - Stack
 - I/O channels
 
+### CLI Interface
+
+See [cmd/ucapp/README.md](cmd/ucapp/README.md)
+
 ### CAPP Details
 
 See [capp/README.md](capp/README.md)
