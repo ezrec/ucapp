@@ -30,8 +30,12 @@ func (prog *Program) Debug(ip uint16) (dbg Debug) {
 
 func (prog *Program) Binary() (bins []uint32) {
 	for ip, code := range prog.Codes() {
-		data := ARENA_CODE | (uint32(ip) << 20) | uint32(code)
-		bins = append(bins, data)
+		var data []uint32
+		for _, imm := range code.Immediates {
+			data = append(data, ARENA_CODE|(uint32(ip)<<16)|uint32(imm))
+		}
+		data = append(data, ARENA_CODE|(uint32(ip)<<16)|uint32(code.Word))
+		bins = append(bins, data...)
 	}
 
 	return

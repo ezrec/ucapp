@@ -55,7 +55,8 @@ func TestAssemblerIo(t *testing.T) {
 	}
 
 	expected := []Opcode{
-		{1, 0, []string{"?", "trap"}, []Code{0x4_dfce}, ""},
+		{LineNo: 1, Ip: 0, Words: []string{"?", "trap"},
+			Codes: []Code{MakeCodeIo(COND_TRUE, IO_OP_AWAIT, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF)}},
 	}
 
 	opEqual(t, expected, prog.Opcodes)
@@ -84,16 +85,17 @@ func TestAssemblerRegisters(t *testing.T) {
 
 	expected := []Opcode{
 		{1, 0, []string{"list", "of", "0x123", "0x7ff"}, []Code{
-			0x1_07ff, 0x1_0123, 0x0_a8ff}, ""},
-		{2, 3, []string{"write", "r0", "0x10"}, []Code{
-			0x1_0010, 0x0_00fe}, ""},
-		{3, 5, []string{"write", "r1", "0x20"}, []Code{
-			0x1_0020, 0x0_01fe}, ""},
-		{4, 7, []string{"write", "r2", "0x30"}, []Code{
-			0x1_0030, 0x0_02fe}, ""},
-		{5, 9, []string{"write", "r3", "0x40"}, []Code{
-			0x1_0040, 0x0_03fe}, ""},
-		{6, 11, []string{"list", "all"}, []Code{0x0_88cc}, ""},
+			MakeCodeCapp(COND_ALWAYS, CAPP_OP_SET_OF, IR_IMMEDIATE_16, IR_IMMEDIATE_16, 0x123, 0x7ff)}, ""},
+		{2, 1, []string{"write", "r0", "0x10"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}, ""},
+		{3, 2, []string{"write", "r1", "0x20"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}, ""},
+		{4, 3, []string{"write", "r2", "0x30"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R2, IR_IMMEDIATE_16, 0x30)}, ""},
+		{5, 4, []string{"write", "r3", "0x40"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R3, IR_IMMEDIATE_16, 0x40)}, ""},
+		{6, 5, []string{"list", "all"}, []Code{
+			MakeCodeCapp(COND_ALWAYS, CAPP_OP_LIST_ALL, IR_CONST_0, IR_CONST_0)}, ""},
 	}
 
 	opEqual(t, expected, prog.Opcodes)
@@ -126,18 +128,30 @@ func TestAssemblerAlu(t *testing.T) {
 	}
 
 	expected := []Opcode{
-		{1, 0, []string{"write", "r0", "0x10"}, []Code{0x1_0010, 0x0_00fe}, ""},
-		{2, 2, []string{"alu", "add", "r0", "1"}, []Code{0x0_30de}, ""},
-		{3, 3, []string{"alu", "sub", "r0", "1"}, []Code{0x0_38de}, ""},
-		{4, 4, []string{"write", "r1", "0x200"}, []Code{0x1_0200, 0x0_01fe}, ""},
-		{5, 6, []string{"alu", "xor", "r1", "r0"}, []Code{0x0_090e}, ""},
-		{6, 7, []string{"alu", "and", "r1", "0xf"}, []Code{0x1_000f, 0x0_11fe}, ""},
-		{7, 9, []string{"alu", "shl", "r1", "2"}, []Code{0x1_0002, 0x0_21fe}, ""},
-		{8, 11, []string{"alu", "and", "r1", "0x20"}, []Code{0x1_0020, 0x0_11fe}, ""},
-		{9, 13, []string{"write", "r2", "0x100"}, []Code{0x1_0100, 0x0_02fe}, ""},
-		{10, 15, []string{"alu", "or", "r2", "0x200"}, []Code{0x1_0200, 0x0_1afe}, ""},
-		{11, 17, []string{"alu", "shr", "r2", "4"}, []Code{0x1_0004, 0x0_2afe}, ""},
-		{12, 19, []string{"write", "r3", "0x40"}, []Code{0x1_0040, 0x0_03fe}, ""},
+		{1, 0, []string{"write", "r0", "0x10"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}, ""},
+		{2, 1, []string{"alu", "add", "r0", "1"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_IMMEDIATE_16, 0x1)}, ""},
+		{3, 2, []string{"alu", "sub", "r0", "1"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SUB, IR_REG_R0, IR_IMMEDIATE_16, 0x1)}, ""},
+		{4, 3, []string{"write", "r1", "0x200"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x200)}, ""},
+		{5, 4, []string{"alu", "xor", "r1", "r0"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_XOR, IR_REG_R1, IR_REG_R0)}, ""},
+		{6, 5, []string{"alu", "and", "r1", "0xf"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_AND, IR_REG_R1, IR_IMMEDIATE_16, 0xf)}, ""},
+		{7, 6, []string{"alu", "shl", "r1", "2"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SHL, IR_REG_R1, IR_IMMEDIATE_16, 2)}, ""},
+		{8, 7, []string{"alu", "and", "r1", "0x20"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_AND, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}, ""},
+		{9, 8, []string{"write", "r2", "0x100"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R2, IR_IMMEDIATE_16, 0x100)}, ""},
+		{10, 9, []string{"alu", "or", "r2", "0x200"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_OR, IR_REG_R2, IR_IMMEDIATE_16, 0x200)}, ""},
+		{11, 10, []string{"alu", "shr", "r2", "4"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SHR, IR_REG_R2, IR_IMMEDIATE_16, 0x4)}, ""},
+		{12, 11, []string{"write", "r3", "0x40"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R3, IR_IMMEDIATE_16, 0x40)}, ""},
 	}
 
 	opEqual(t, expected, prog.Opcodes)
@@ -193,18 +207,30 @@ func TestAssemblerMacro(t *testing.T) {
 	}
 
 	expected := []Opcode{
-		{2, 0, []string{"write", "r0", "8"}, []Code{0x1_0008, 0x0_00fe}, ""},
-		{3, 2, []string{"alu", "add", "r0", "8"}, []Code{0x1_0008, 0x0_30fe}, ""},
-		{2, 4, []string{"write", "r1", "0x10"}, []Code{0x1_0010, 0x0_01fe}, ""},
-		{3, 6, []string{"alu", "add", "r1", "0x10"}, []Code{0x1_0010, 0x0_31fe}, ""},
-		{2, 8, []string{"write", "r2", "0x20"}, []Code{0x1_0020, 0x0_02fe}, ""},
-		{3, 10, []string{"alu", "add", "r2", "r0"}, []Code{0x0_320e}, ""},
-		{2, 11, []string{"write", "r3", "r2"}, []Code{0x0_032e}, ""},
-		{3, 12, []string{"alu", "add", "r3", "r0"}, []Code{0x0_330e}, ""},
-		{2, 13, []string{"write", "r0", "0"}, []Code{0x0_00ce}, ""},
-		{3, 14, []string{"alu", "add", "r0", "0xffffffff"}, []Code{0x0_30ee}, ""},
-		{2, 15, []string{"write", "r1", "0xffffffff"}, []Code{0x0_01ee}, ""},
-		{3, 16, []string{"alu", "add", "r1", "0"}, []Code{0x0_31ce}, ""},
+		{2, 0, []string{"write", "r0", "8"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 8)}, ""},
+		{3, 1, []string{"alu", "add", "r0", "8"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_IMMEDIATE_16, 8)}, ""},
+		{2, 2, []string{"write", "r1", "0x10"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x10)}, ""},
+		{3, 3, []string{"alu", "add", "r1", "0x10"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R1, IR_IMMEDIATE_16, 0x10)}, ""},
+		{2, 4, []string{"write", "r2", "0x20"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R2, IR_IMMEDIATE_16, 0x20)}, ""},
+		{3, 5, []string{"alu", "add", "r2", "r0"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R2, IR_REG_R0)}, ""},
+		{2, 6, []string{"write", "r3", "r2"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R3, IR_REG_R2)}, ""},
+		{3, 7, []string{"alu", "add", "r3", "r0"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R3, IR_REG_R0)}, ""},
+		{2, 8, []string{"write", "r0", "0"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_CONST_0)}, ""},
+		{3, 9, []string{"alu", "add", "r0", "0xffffffff"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_CONST_FFFFFFFF)}, ""},
+		{2, 10, []string{"write", "r1", "0xffffffff"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_CONST_FFFFFFFF)}, ""},
+		{3, 11, []string{"alu", "add", "r1", "0"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R1, IR_CONST_0)}, ""},
 	}
 
 	opEqual(t, expected, prog.Opcodes)
@@ -251,11 +277,25 @@ func TestAssemblerCall(t *testing.T) {
 	assert.NoError(err)
 
 	expected := []Opcode{
-		{1, 0, []string{"call", "FUNC"}, []Code{0x1_0006, 0x07de, 0x376e, 0x06fe}, "FUNC"},
-		{2, 4, []string{"jump", "EXIT"}, []Code{0x1_000b, 0x06fe}, "EXIT"},
-		{4, 6, []string{"vcall", "0x1234"}, []Code{0x1_1234, 0x0_07de, 0x0_376e, 0x0_06fe}, ""},
-		{5, 10, []string{"return"}, []Code{0x067e}, ""},
-		{7, 11, []string{"exit"}, []Code{0x6ee}, ""},
+		{1, 0, []string{"call", "FUNC"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_STACK, IR_IP),
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, 0, 4),
+		}, "FUNC"},
+		{2, 3, []string{"jump", "EXIT"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, 0, 8),
+		}, "EXIT"},
+		{4, 4, []string{"vcall", "0x1234"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_STACK, IR_IP),
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_16, 0x1234),
+		}, ""},
+		{5, 7, []string{"return"}, []Code{
+			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_STACK),
+		}, ""},
+		{7, 8, []string{"exit"}, []Code{
+			MakeCodeExit(COND_ALWAYS),
+		}, ""},
 	}
 
 	opEqual(t, expected, prog.Opcodes)

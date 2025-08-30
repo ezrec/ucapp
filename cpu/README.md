@@ -16,12 +16,12 @@ The reset state of the machine is:
 
 - All CAPP values are randomized.
 - CPU registers are preloaded with the following instructions:
-  - r0: `.list.of 0 immz immz         ; Select all of the CAPP`
-  - r1: `.list.all 0 immz immz        ; Tag all items`
-  - r2: `.list.write 0 immnz immnz    ; Replace all values with 0xFFFFFFFF`
-  - r3: `.io.fetch rom immz immnz     ; Load boot ROM into CAPP`
-  - r4: `.list.not 0 immz immz        ; Now, only the program is tagged`
-  - r5: `.alu.set ip immz immnz      ; Set IP to 0x00000000 (exec from CAPP)`
+  - r0: `.list.of.immz.immz         ; Select all of the CAPP`
+  - r1: `.list.all.immz.immz        ; Tag all items`
+  - r2: `.list.write.immnz.immnz    ; Replace all values with 0xFFFFFFFF`
+  - r3: `.io.fetch.rom.immnz     ; Load boot ROM into CAPP`
+  - r4: `.list.not.immz.immz        ; Now, only the program is tagged`
+  - r5: `.alu.set.ip.immz      ; Set IP to 0x00000000 (exec from CAPP)`
 - CPU IP is set to 0x8000000 (execute-from-registers)
 
 ### Bootstrap
@@ -33,11 +33,11 @@ The reset state of the machine is:
   - Read into CAPP as a program in IO arena.
   - Select boot program in CAPP
   - Write trampoline into registers:
-    - r0: `.list.write 0 immnz immnz  ; Free boot program`
+    - r0: `.list.write.immnz.immnz  ; Free boot program`
     - r1: `.imm_hi32 0x8000           ; Arena ID for program`
     - r2: `.imm_hi32 0xc000           ; Arena mask`
-    - r3: `.list.of 0 immz imm        ; Select IO program in IO area`
-    - r4: `.list.write 0 immnz imm    ; Write program ID to list`
-    - r5: `.alu.set ip immz immnz    ; Set IP to 0x00000000 (exec from CAPP)`
+    - r3: `.list.of.immz.imm32      ; Select IO program in IO area`
+    - r4: `.list.write.immnz.imm32    ; Write program ID to list`
+    - r5: `.alu.set.ip.immz.immnz    ; Set IP to 0x00000000 (exec from CAPP)`
   - CPU IP is set to 0x8000000 (execute-from-registers)
   - Control is transferred to the program from Drum 0, Ring 255.

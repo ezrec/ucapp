@@ -48,9 +48,9 @@ CAPP is modified later it does _not_ affect the running program.
   1011 - count
 
   1100 - const 0
-  1101 - const 1
-  1110 - const 0xffffffff
-  1111 - immediate & 0xffffffff; immediate >>= 32
+  1101 - const 0xffffffff
+  1110 - immediate & 0xffff; immediate >> 16
+  1111 - immediate; immediate >>= 32
 
 ## Channels
 
@@ -94,15 +94,10 @@ if gt? A B
 if le? A B
 if ge? A B
 
-  1000 - ==  equals
-  1001 - <  less than
-  1010 - >  greater than
-  1011 - ?
-
-  1100 - !=  not equals
-  1101 - !<  greater or equal to
-  1110 - !>  less than or equal to
-  1111 - ?
+    00 - == equals
+    01 - != not equal
+    10 - <  less than
+    11 - <= less or equal
 
 ## CAPP Ops
 
@@ -135,17 +130,17 @@ vvvv: Value IR
 mmmm: Mask IR
 
 ```
-.alu.OP R V M         - cc00 00aa arrr VVVV MMMM
-.if.OP R A B          - cc00 01ii i000 AAAA BBBB
-.list.OP V M          - cc00 10ll l000 VVVV MMMM
-.io OP CHANNEL V M    - cc00 11oo oCCC VVVV MMMM
-.imm_lo32  YYYY       - cc01 + 16 bit data -> imm = imm << 32 | 0x0000YYYY
-.imm_hi32  YYYY       - cc10 + 16 bit data -> imm = imm << 32 | 0xYYYY0000
-.imm_or16  YYYY       - cc11 + 16 bit data -> imm = imm | 0x0000YYYY
+.alu.OP R V           16 - cc 000 aaa 0rrr VVVV
+.if.OP A B            16 - cc 001 0ii AAAA BBBB
+.list.OP V M          16 - cc 010 lll VVVV MMMM
+.io OP CHANNEL ARG    16 - cc 011 0oo 0CCC AAAA
+.imm YYYY             16 - YY YYY YYY YYYY YYYY -> imm = ((imm << 16) | 0xYYYY)
 ```
 
-alert CHANNEL V M
-await CHANNEL V M   - V must be a r0, r1, r2, r3, true?, false?, ip, stack
+fetch CHANNEL MASK
+store CHANNEL MASK
+alert CHANNEL V
+await CHANNEL V   - V must be a r0, r1, r2, r3, true?, false?, ip, stack
 
 if some?
 ? jump foo

@@ -21,17 +21,15 @@ var (
 	ErrChannelFull    = errors.New(f("channel full"))
 
 	// Instruction decode errors
-	ErrOpcodeDecode  = errors.New(f("decode"))
-	ErrOpcodeImm     = errors.New(f("imm"))
-	ErrOpcodeAlu     = errors.New(f("alu"))
-	ErrOpcodeCond    = errors.New(f("cond"))
-	ErrOpcodeCapp    = errors.New(f("capp"))
-	ErrOpcodeIo      = errors.New(f("io"))
-	ErrOpcodeOp      = errors.New(f("op"))
-	ErrOpcodeChannel = errors.New(f("channel"))
-	ErrOpcodeTarget  = errors.New(f("target"))
-	ErrOpcodeValue   = errors.New(f("value"))
-	ErrOpcodeMask    = errors.New(f("mask"))
+	ErrOpcodeDecode = errors.New(f("decode"))
+	ErrOpcodeAlu    = errors.New(f("alu"))
+	ErrOpcodeCond   = errors.New(f("cond"))
+	ErrOpcodeCapp   = errors.New(f("capp"))
+	ErrOpcodeIo     = errors.New(f("io"))
+	ErrOpcodeOp     = errors.New(f("op"))
+	ErrOpcodeArg1   = errors.New(f("arg1"))
+	ErrOpcodeArg2   = errors.New(f("arg2"))
+	ErrOpcodeImm    = errors.New(f("imm"))
 
 	// Assembler errors
 	ErrEquateSyntax       = errors.New(f(".equ syntax"))
@@ -58,10 +56,10 @@ func (el ErrLabelMissing) Error() string {
 	return f("label %v missing", string(el))
 }
 
-type ErrOpcode uint32
+type ErrOpcode Code
 
 func (eo ErrOpcode) Error() string {
-	return f("bad opcode 0x%05x %v", uint32(eo), Code(uint32(eo)).String())
+	return f("bad opcode 0x%04x %v", uint16(eo.Word), Code(eo).String())
 }
 
 func (eo ErrOpcode) Is(err error) (ok bool) {

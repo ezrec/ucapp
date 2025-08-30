@@ -103,7 +103,7 @@ var irMap = map[string]CodeIR{
 	"count": IR_REG_COUNT,
 }
 
-func (asm *Assembler) irOrImm(cond CodeCond, word string) (ir CodeIR, codes []Code, err error) {
+func (asm *Assembler) irOrImm(word string) (ir CodeIR, imms []uint16, err error) {
 	ir, is_ir := irMap[word]
 	if is_ir {
 		// known value source - we're done!
@@ -118,34 +118,17 @@ func (asm *Assembler) irOrImm(cond CodeCond, word string) (ir CodeIR, codes []Co
 
 	// Determine if encodable immediate, or if it
 	// needs to be packed into the opcode words.
-	var imm uint32
-	switch value {
-	case 0:
+	switch {
+	case value == 0:
 		ir = IR_CONST_0
-		is_ir = true
-	case 1:
-		ir = IR_CONST_1
-		is_ir = true
-	case 0xffffffff:
+	case value == 0xffffffff:
 		ir = IR_CONST_FFFFFFFF
-		is_ir = true
+	case value <= 0xffff:
+		ir = IR_IMMEDIATE_16
+		imms = []uint16{uint16((value >> 0) & 0xffff)}
 	default:
-		imm = value
-		is_ir = false
-	}
-
-	if !is_ir {
-		switch {
-		case (imm & 0xffff) == 0:
-			ir = IR_IMMEDIATE_32
-			codes = append(codes, MakeCodeImmediate(cond, IMM_OP_HI32, uint16(imm>>16)))
-		case (imm & 0xffff0000) == 0:
-			ir = IR_IMMEDIATE_32
-			codes = append(codes, MakeCodeImmediate(cond, IMM_OP_LO32, uint16(imm>>0)))
-		default:
-			ir = IR_IMMEDIATE_32
-			codes = append(codes, MakeCodeImmediate(cond, IMM_OP_HI32, uint16(imm>>16)), MakeCodeImmediate(cond, IMM_OP_OR16, uint16(imm>>0)))
-		}
+		ir = IR_IMMEDIATE_32
+		imms = []uint16{uint16((value >> 16) & 0xffff), uint16((value >> 0) & 0xffff)}
 	}
 
 	return
@@ -420,7 +403,15 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 			err = ErrLabelMissing(label)
 			return
 		}
-		op.Codes[0] |= Code(ip)
+		if len(op.Codes) < 1 {
+			log.Fatalf("Unable to link label '%s' to line %d: %v", label, op.LineNo, op.Words)
+		}
+		linked := &op.Codes[len(op.Codes)-1]
+		if len(linked.Immediates) < 2 {
+			log.Fatalf("Missing immediates for link label '%s' at line %d: %v", label, op.LineNo, op.Words)
+		}
+		linked.Immediates[0] |= uint16((ip >> 16) & 0xffff)
+		linked.Immediates[1] |= uint16((ip >> 0) & 0xffff)
 	}
 
 	prog = &Program{
@@ -470,7 +461,25 @@ func (asm *Assembler) getChannel(word string) (channel CodeChannel, err error) {
 	return
 }
 
-func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (codes []Code, match, mask CodeIR, err error) {
+func (asm *Assembler) getMask(words []string) (imms []uint16, mask CodeIR, err error) {
+	if len(words) > 1 {
+		err = ErrOpcodeExtraArgs
+		return
+	}
+
+	if len(words) == 0 {
+		mask = IR_CONST_FFFFFFFF
+	} else {
+		mask, imms, err = asm.irOrImm(words[0])
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (imms []uint16, match, mask CodeIR, err error) {
 	if len(words) > 2 {
 		err = ErrOpcodeExtraArgs
 		return
@@ -488,13 +497,13 @@ func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (codes []Code,
 	out := [2](*CodeIR){&match, &mask}
 	for n, word := range words {
 		var ir CodeIR
-		var imm_codes []Code
-		ir, imm_codes, err = asm.irOrImm(cond, word)
+		var ir_imms []uint16
+		ir, ir_imms, err = asm.irOrImm(word)
 		if err != nil {
 			return
 		}
-		codes = append(imm_codes, codes...)
 		*out[n] = ir
+		imms = append(imms, ir_imms...)
 	}
 
 	return
@@ -520,6 +529,15 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	}()
 
 	cond := COND_ALWAYS
+
+	switch words[0] {
+	case "?":
+		cond = COND_TRUE
+		words = words[1:]
+	case "!":
+		cond = COND_FALSE
+		words = words[1:]
+	}
 
 	var word_is_dst bool
 	if len(words) >= 2 {
@@ -571,31 +589,13 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	}
 
 	switch words[0] {
-	case "?":
-		cond = COND_TRUE
-		words = words[1:]
-	case "!":
-		cond = COND_FALSE
-		words = words[1:]
-	}
-
-	switch words[0] {
-	case "trap":
-		if len(words) > 1 {
-			err = ErrOpcodeExtraArgs
-			return
-		}
-
-		// Generate a alert to the program channel (alert code 0)
-		codes = append(codes,
-			MakeCodeIo(cond, IO_OP_ALERT, CHANNEL_ID_MONITOR, IR_CONST_0, IR_CONST_FFFFFFFF),
-		)
 	case "if":
 		if len(words) < 2 {
 			err = ErrOpcodeMissing
 			return
 		}
 
+		var imms []uint16
 		a := IR_CONST_0
 		b := IR_CONST_0
 		op := COND_OP_EQ
@@ -607,7 +607,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			err = ErrOpcodeExtraArgs
 			return
 		}
-		codes, a, b, err = asm.getMatchMask(cond, words[2:])
+		imms, a, b, err = asm.getMatchMask(cond, words[2:])
 		switch words[1] {
 		case "eq?":
 			op = COND_OP_EQ
@@ -618,19 +618,22 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		case "lt?":
 			op = COND_OP_LT
 		case "ge?":
-			op = COND_OP_GE
+			op = COND_OP_LT
+			b, a = a, b
 		case "gt?":
-			op = COND_OP_GT
+			op = COND_OP_LE
+			b, a = a, b
 		default:
 			err = ErrOpcodeInvalid
 			return
 		}
-		codes = append(codes, MakeCodeCond(cond, op, a, b))
+		codes = append(codes, MakeCodeCond(cond, op, a, b, imms...))
 	case "list":
 		if len(words) < 2 {
 			err = ErrOpcodeMissing
 			return
 		}
+		var imms []uint16
 		switch words[1] {
 		case "all":
 			if len(words) > 2 {
@@ -656,44 +659,44 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 				return
 			}
 			var match, mask CodeIR
-			codes, match, mask, err = asm.getMatchMask(cond, words[2:])
+			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
-			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_SET_OF, match, mask))
+			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_SET_OF, match, mask, imms...))
 		case "only":
 			var match, mask CodeIR
 			if len(words) < 3 {
 				err = ErrOpcodeValueMissing
 				return
 			}
-			codes, match, mask, err = asm.getMatchMask(cond, words[2:])
+			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
-			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_LIST_ONLY, match, mask))
+			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_LIST_ONLY, match, mask, imms...))
 		case "write":
 			var match, mask CodeIR
 			if len(words) < 3 {
 				err = ErrOpcodeValueMissing
 				return
 			}
-			codes, match, mask, err = asm.getMatchMask(cond, words[2:])
+			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
-			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_WRITE_LIST, match, mask))
+			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_WRITE_LIST, match, mask, imms...))
 		case "first":
 			var match, mask CodeIR
 			if len(words) < 3 {
 				err = ErrOpcodeValueMissing
 				return
 			}
-			codes, match, mask, err = asm.getMatchMask(cond, words[2:])
+			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
-			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_WRITE_FIRST, match, mask))
+			codes = append(codes, MakeCodeCapp(cond, CAPP_OP_WRITE_FIRST, match, mask, imms...))
 		default:
 			err = ErrOpcodeInvalid
 			return
@@ -708,24 +711,25 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		if err != nil {
 			return
 		}
-		var value, mask CodeIR
-		codes, value, mask, err = asm.getMatchMask(cond, words[3:])
+		var arg CodeIR
+		var imms []uint16
+		imms, arg, err = asm.getMask(words[3:])
 		if err != nil {
 			return
 		}
 		switch words[1] {
 		case "fetch":
-			codes = append(codes, MakeCodeIo(cond, IO_OP_FETCH, channel, value, mask))
+			codes = append(codes, MakeCodeIo(cond, IO_OP_FETCH, channel, arg, imms...))
 		case "store":
-			codes = append(codes, MakeCodeIo(cond, IO_OP_STORE, channel, value, mask))
+			codes = append(codes, MakeCodeIo(cond, IO_OP_STORE, channel, arg, imms...))
 		case "alert":
-			codes = append(codes, MakeCodeIo(cond, IO_OP_ALERT, channel, value, mask))
+			codes = append(codes, MakeCodeIo(cond, IO_OP_ALERT, channel, arg, imms...))
 		case "await":
-			if value != IR_CONST_0 && !value.Writable() {
+			if arg != IR_CONST_FFFFFFFF && !arg.Writable() {
 				err = ErrOpcodeInvalid
 				return
 			}
-			codes = append(codes, MakeCodeIo(cond, IO_OP_AWAIT, channel, value, mask))
+			codes = append(codes, MakeCodeIo(cond, IO_OP_AWAIT, channel, arg, imms...))
 		default:
 			err = ErrOpcodeInvalid
 			return
@@ -740,11 +744,9 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			return
 		}
 		codes = append(codes,
-			// The '0' will be replaced during label link time!
-			MakeCodeImmediate(cond, IMM_OP_LO32, 0x0000),
-			MakeCodeAlu(cond, ALU_OP_SET, IR_STACK, IR_CONST_1, IR_CONST_FFFFFFFF),
-			MakeCodeAlu(cond, ALU_OP_ADD, IR_STACK, IR_IP, IR_CONST_FFFFFFFF),
-			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, IR_CONST_FFFFFFFF),
+			MakeCodeAlu(cond, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
+			MakeCodeAlu(cond, ALU_OP_ADD, IR_STACK, IR_IP),
+			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, 0, 0),
 		)
 		label = words[1]
 	case "vcall":
@@ -752,15 +754,16 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			err = ErrOpcodeMissing
 			return
 		}
-		var value, mask CodeIR
-		codes, value, mask, err = asm.getMatchMask(cond, words[1:])
+		var imms []uint16
+		var arg CodeIR
+		imms, arg, err = asm.getMask(words[1:])
 		if err != nil {
 			return
 		}
 		codes = append(codes,
-			MakeCodeAlu(cond, ALU_OP_SET, IR_STACK, IR_CONST_1, IR_CONST_FFFFFFFF),
-			MakeCodeAlu(cond, ALU_OP_ADD, IR_STACK, IR_IP, IR_CONST_FFFFFFFF),
-			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, value, mask),
+			MakeCodeAlu(cond, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
+			MakeCodeAlu(cond, ALU_OP_ADD, IR_STACK, IR_IP),
+			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, arg, imms...),
 		)
 	case "return":
 		if len(words) > 1 {
@@ -768,7 +771,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			return
 		}
 		codes = append(codes,
-			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_STACK, IR_CONST_FFFFFFFF),
+			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_STACK),
 		)
 	case "exit":
 		codes = append(codes, MakeCodeExit(cond))
@@ -782,36 +785,9 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			return
 		}
 		codes = append(codes,
-			// The '0' will be replaced during label link time!
-			MakeCodeImmediate(cond, IMM_OP_LO32, 0),
-			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, IR_CONST_FFFFFFFF),
+			MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, 0, 0),
 		)
 		label = words[1]
-	case "write":
-		if len(words) < 2 {
-			err = ErrTargetMissing
-			return
-		}
-		if len(words) < 3 {
-			err = ErrOpcodeValueMissing
-			return
-		}
-		if len(words) > 4 {
-			err = ErrOpcodeExtraArgs
-			return
-		}
-		var match, mask CodeIR
-		codes, match, mask, err = asm.getMatchMask(cond, words[2:])
-		if err != nil {
-			return
-		}
-
-		rr, ok := dstMap[words[1]]
-		if !ok {
-			err = ErrTargetInvalid
-			return
-		}
-		codes = append(codes, MakeCodeAlu(cond, ALU_OP_SET, rr, match, mask))
 	case "alu":
 		if len(words) < 4 {
 			err = ErrOpcodeMissing
@@ -831,12 +807,13 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			err = ErrTargetInvalid
 			return
 		}
-		var match, mask CodeIR
-		codes, match, mask, err = asm.getMatchMask(cond, words[3:])
+		var arg CodeIR
+		var imms []uint16
+		imms, arg, err = asm.getMask(words[3:])
 		if err != nil {
 			return
 		}
-		codes = append(codes, MakeCodeAlu(cond, alu, reg, match, mask))
+		codes = append(codes, MakeCodeAlu(cond, alu, reg, arg, imms...))
 	default:
 		err = ErrInstructionInvalid
 		return

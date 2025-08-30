@@ -1,9 +1,5 @@
 package channel
 
-import (
-	"log"
-)
-
 const (
 	DRUM_OP_MASK        = (1 << 8)
 	DRUM_OP_SELECT      = (0 << 8)
@@ -31,7 +27,6 @@ func (dc *Drum) selectRing(selected uint8) {
 		}
 		ring = &Ring{}
 		ring.Reset()
-		log.Printf("Create RING %v", selected)
 		dc.Rings[selected] = ring
 	}
 	dc.Ring = ring

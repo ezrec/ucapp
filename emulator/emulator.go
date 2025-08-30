@@ -49,9 +49,10 @@ func NewEmulator() (emu *Emulator) {
 func (emu *Emulator) Reset() (err error) {
 	cp := emu.Cpu.Capp
 
+	emu.Cpu.Verbose = false
+
 	if emu.Verbose {
 		log.Printf("reset")
-		cp.Verbose = true
 	}
 	emu.Rom.Data = emu.Program.Binary()
 
@@ -70,6 +71,8 @@ func (emu *Emulator) Reset() (err error) {
 
 	// Reset power stats.
 	cp.BitsFlipped = 0
+
+	emu.Cpu.Verbose = emu.Verbose
 
 	return
 }
@@ -97,7 +100,7 @@ func (emu *Emulator) Code() cpu.Code {
 		}
 	}
 
-	return cpu.Code(0)
+	return cpu.Code{}
 }
 
 // LineNo returns the current line number for the executing opcode.

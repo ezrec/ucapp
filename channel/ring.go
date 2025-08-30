@@ -2,7 +2,6 @@ package channel
 
 import (
 	"iter"
-	"log"
 )
 
 const (
@@ -39,8 +38,6 @@ func (ring *Ring) Reset() {
 	}
 
 	ring.ReadIndex = 0
-
-	log.Printf("ring reset, len=%v, cap=%v", ring.WriteIndex, ring.Capacity)
 }
 
 func (ring *Ring) Receive() iter.Seq[bool] {

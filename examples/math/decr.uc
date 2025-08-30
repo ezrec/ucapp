@@ -6,7 +6,7 @@ More:
 ; Load tape as lower 8 bits of newly allocated CAPP
 list of ARENA_FREE ARENA_MASK
 list all
-fetch tape 0 0xff
+fetch tape 0xff
 list not
 write list ARENA_IO 0xffffff00
 list of ARENA_IO ARENA_MASK
@@ -36,7 +36,7 @@ if eq? RCOUNT 0
 
 list of ARENA_IO ARENA_MASK
 list all
-store tape 0 0xff ; Store only the low bytes of the tape.
+store tape 0xff ; Store only the low bytes of the tape.
 list not
 write list ~0 ~0
 jump More

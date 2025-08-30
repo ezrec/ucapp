@@ -24,13 +24,12 @@ type Cpu struct {
 
 	Capp *capp.Capp
 
-	Ip        uint32
-	Immediate uint64
-	Register  [6]uint32
-	Stack     Stack
-	Match     uint32
-	Mask      uint32
-	Cond      bool
+	Ip       uint32
+	Register [6]uint32
+	Stack    Stack
+	Match    uint32
+	Mask     uint32
+	Cond     bool
 
 	Power int
 	Ticks int
@@ -96,7 +95,6 @@ func (cpu *Cpu) String() (text string) {
 }
 
 func (cpu *Cpu) Reset() (err error) {
-	cpu.Immediate = 0
 	clear(cpu.Register[:])
 	cpu.Stack.Reset()
 	cpu.Capp.Reset()
@@ -113,24 +111,27 @@ func (cpu *Cpu) Reset() (err error) {
 	// Set IP to run from registers
 	cpu.Ip = IP_MODE_REG
 
-	// r0: .list.of.-.immz.immz        ; Select all of the CAPP
-	// r1: .list.all.-.-.-             ; Tag all items
-	// r2: .list.write.-.immnz.immnz   ; Replace all values with 0xFFFFFFFF
-	// r3: .io.fetch.rom.immz.immnz    ; Load boot ROM into CAPP
-	// r4: .list.not.-.-.-             ; Now, only the program is tagged
-	// r5: .alu.set.ip.immz.immnz      ; Set IP to 0x00000000 (exec from CAPP)
+	// r0: .list.of.immz.immz        ; Select all of the CAPP
+	// r1: .list.all.-.-             ; Tag all items
+	// r2: .list.write.immnz   ; Replace all values with 0xFFFFFFFF
+	// r3: .io.fetch.rom.immnz    ; Load boot ROM into CAPP
+	// r4: .list.not.-.-             ; Now, only the program is tagged
+	// r5: .alu.set.ip.immz      ; Set IP to 0x00000000 (exec from CAPP)
 
 	bootstrap := [6]Code{
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_SET_OF, IR_CONST_0, IR_CONST_0),
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_LIST_ALL, IR_CONST_0, IR_CONST_0),
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_WRITE_LIST, IR_CONST_FFFFFFFF, IR_CONST_FFFFFFFF),
-		MakeCodeIo(COND_ALWAYS, IO_OP_FETCH, CHANNEL_ID_MONITOR, IR_CONST_0, IR_CONST_FFFFFFFF),
+		MakeCodeIo(COND_ALWAYS, IO_OP_FETCH, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF),
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_LIST_NOT, IR_CONST_0, IR_CONST_0),
-		MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_CONST_0, IR_CONST_FFFFFFFF),
+		MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_CONST_0),
 	}
 
 	for n, code := range bootstrap {
-		cpu.Register[n] = uint32(code)
+		if len(code.Immediates) != 0 {
+			panic("bootstrap cannot use immediates")
+		}
+		cpu.Register[n] = uint32(code.Word)
 	}
 
 	return
@@ -151,7 +152,7 @@ func (cpu *Cpu) GetChannel(ch CodeChannel) (channel Channel, err error) {
 	return
 }
 
-func (cpu *Cpu) listInput(in Channel, value, mask uint32) (err error) {
+func (cpu *Cpu) listInput(in Channel, mask uint32) (err error) {
 	inputs := in.Receive()
 	cp := cpu.Capp
 
@@ -177,7 +178,7 @@ func (cpu *Cpu) listInput(in Channel, value, mask uint32) (err error) {
 		tmp >>= 1
 		if tmp == 0 {
 			n = 0
-			cp.Action(capp.WRITE_FIRST, value|inval, mask)
+			cp.Action(capp.WRITE_FIRST, inval, mask)
 			cp.Action(capp.LIST_NEXT, 0, 0)
 			tmp = mask
 			inval = 0
@@ -186,7 +187,7 @@ func (cpu *Cpu) listInput(in Channel, value, mask uint32) (err error) {
 	return
 }
 
-func (cpu *Cpu) listOutput(out Channel, value, mask uint32) (err error) {
+func (cpu *Cpu) listOutput(out Channel, mask uint32) (err error) {
 	cp := cpu.Capp
 
 	if mask == 0 {
@@ -194,7 +195,7 @@ func (cpu *Cpu) listOutput(out Channel, value, mask uint32) (err error) {
 	}
 
 	for cp.Count() > 0 {
-		inval := cp.First() | value
+		inval := cp.First()
 		for n := range 32 {
 			if (mask & (1 << n)) != 0 {
 				bit := ((inval >> n) & 1) != 0
@@ -223,7 +224,7 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 			err = ErrIpEmpty
 			return
 		}
-		code = Code(cpu.Register[reg])
+		code = Code{Word: uint16(cpu.Register[reg])}
 	case IP_MODE_STACK:
 		opcode, ok := cpu.Stack.Pop()
 		if !ok {
@@ -231,20 +232,29 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 			err = ErrIpEmpty
 			return
 		}
-		code = Code(opcode)
+		code = Code{Word: uint16(opcode)}
 	case IP_MODE_CAPP:
 		cpu.Capp.Verbose = false
 		cpu.Capp.Action(capp.SET_SWAP, 0, 0)
-		cpu.Capp.Action(capp.SET_OF, ARENA_CODE|(uint32(cpu.Ip&0x3ff)<<20), ARENA_MASK|(0x3ff<<20))
+		cpu.Capp.Action(capp.SET_OF, ARENA_CODE|(uint32(cpu.Ip&0x3fff)<<16), ARENA_MASK|(0x3fff<<16))
+		cpu.Capp.Action(capp.LIST_ALL, 0, 0)
+
 		count := cpu.Capp.Count()
+		var imms []uint16
+		for count > 1 {
+			// save immediates
+			imms = append(imms, uint16(cpu.Capp.First()&0xffff))
+			cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
+			count = cpu.Capp.Count()
+		}
 		first := cpu.Capp.First()
 		cpu.Capp.Action(capp.SET_SWAP, 0, 0)
 		if count != 1 {
-			log.Printf("Ip 0x%x > capp empty (%d)", cpu.Ip, count)
 			err = ErrIpEmpty
 			return
 		}
-		code = Code(first & ((1 << 20) - 1))
+		code = Code{Word: uint16(first & 0xffff), Immediates: imms}
+
 		cpu.Capp.Verbose = cpu.Verbose
 	default:
 		log.Printf("Ip 0x%x > unknown source", cpu.Ip)
@@ -294,7 +304,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 		}
 	}()
 	if cpu.Verbose {
-		log.Printf("%03x: %v", cpu.Ip, first.String())
+		log.Printf("%03x: %v", cpu.Ip, first)
 	}
 
 	cp := cpu.Capp
@@ -307,7 +317,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 	var prior uint64
 	var result uint64
 
-	no_op := MakeCodeAlu(COND_ALWAYS, ALU_OP_OR, IR_REG_R0, IR_CONST_0, IR_CONST_0)
+	no_op := MakeCodeAlu(COND_ALWAYS, ALU_OP_OR, IR_REG_R0, IR_CONST_0)
 
 	cond := first.Cond()
 	switch cond {
@@ -327,37 +337,15 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 		}
 	}
 
+	imms := first.Immediates
+
 	switch first.Class() {
-	case OP_IMM:
-		op := first.ImmOp()
-		prior = cpu.Immediate
-		switch op {
-		case IMM_OP_LO32:
-			result = (cpu.Immediate << 32) | uint64(first&0xffff)
-		case IMM_OP_HI32:
-			result = (cpu.Immediate << 32) | uint64((first&0xffff)<<16)
-		case IMM_OP_OR16:
-			result = (cpu.Immediate & ^uint64(0xffff)) | uint64(first&0xffff)
-		default:
-			err = errors.Join(ErrOpcodeImm, ErrOpcodeOp)
-			return
-		}
-		cpu.Immediate = result
 	case OP_ALU:
-		op := first.AluOp()
-		dst := first.Target()
-		match := first.Value()
-		mask := first.Mask()
+		op, dst, arg := first.AluDecode()
 		var val uint32
-		var msk uint32
-		val, err = cpu.getValue(match)
+		val, imms, err = cpu.getValue(arg, imms)
 		if err != nil {
-			err = errors.Join(ErrOpcodeAlu, ErrOpcodeValue, err)
-			return
-		}
-		msk, err = cpu.getValue(mask)
-		if err != nil {
-			err = errors.Join(ErrOpcodeAlu, ErrOpcodeMask, err)
+			err = errors.Join(ErrOpcodeAlu, ErrOpcodeArg2, err)
 			return
 		}
 		var input uint32
@@ -368,7 +356,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			set_target = func(value uint32) { next_ip = value }
 		case IR_STACK:
 			if cpu.Stack.Full() {
-				err = ErrStackFull
+				err = errors.Join(ErrOpcodeAlu, ErrOpcodeArg1, ErrStackFull)
 				return
 			}
 			if op == ALU_OP_SET {
@@ -377,7 +365,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 				var ok bool
 				input, ok = cpu.Stack.Pop()
 				if !ok {
-					err = ErrStackEmpty
+					err = errors.Join(ErrOpcodeAlu, ErrOpcodeArg1, ErrStackEmpty)
 					return
 				}
 			}
@@ -388,33 +376,25 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			input = cpu.Register[dst]
 			set_target = func(value uint32) { cpu.Register[dst] = value }
 		default:
-			err = errors.Join(ErrOpcodeAlu, ErrOpcodeTarget)
+			err = errors.Join(ErrOpcodeAlu, ErrOpcodeArg1)
 			return
 		}
 		prior = uint64(input)
-		output := cpu.doAlu(op, input, val, msk)
+		output := cpu.doAlu(op, input, val)
 		set_target(output)
 		result = uint64(output)
 	case OP_COND:
-		op := first.CondOp()
-		dst := first.Target()
-		if dst != 0 {
-			err = ErrOpcode(first)
-			err = errors.Join(ErrOpcodeCond, ErrOpcodeTarget, err)
-			return
-		}
-		a_ir := first.Value()
-		b_ir := first.Mask()
+		op, a_ir, b_ir := first.CondDecode()
 		var a_u uint32
 		var b_u uint32
-		a_u, err = cpu.getValue(a_ir)
+		a_u, imms, err = cpu.getValue(a_ir, imms)
 		if err != nil {
-			err = errors.Join(ErrOpcodeCond, ErrOpcodeValue, err)
+			err = errors.Join(ErrOpcodeCond, ErrOpcodeArg1, err)
 			return
 		}
-		b_u, err = cpu.getValue(b_ir)
+		b_u, imms, err = cpu.getValue(b_ir, imms)
 		if err != nil {
-			err = errors.Join(ErrOpcodeCond, ErrOpcodeMask, err)
+			err = errors.Join(ErrOpcodeCond, ErrOpcodeArg2, err)
 			return
 		}
 		// Treat as signed.
@@ -427,35 +407,24 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			cpu.Cond = a != b
 		case COND_OP_LT:
 			cpu.Cond = a < b
-		case COND_OP_GT:
-			cpu.Cond = a > b
 		case COND_OP_LE:
 			cpu.Cond = a <= b
-		case COND_OP_GE:
-			cpu.Cond = a >= b
 		default:
 			err = errors.Join(ErrOpcodeCond, ErrOpcodeOp)
 			return
 		}
 	case OP_CAPP:
-		op := first.CappOp()
-		match := first.Match()
-		mask := first.Mask()
-		dst := first.Target()
-		if dst != CodeIR(0) {
-			err = errors.Join(ErrOpcodeCapp, ErrOpcodeTarget)
-			return
-		}
+		op, match, mask := first.CappDecode()
 		var val uint32
 		var msk uint32
-		val, err = cpu.getValue(match)
+		val, imms, err = cpu.getValue(match, imms)
 		if err != nil {
-			err = errors.Join(ErrOpcodeCapp, ErrOpcodeValue, err)
+			err = errors.Join(ErrOpcodeCapp, ErrOpcodeArg1, err)
 			return
 		}
-		msk, err = cpu.getValue(mask)
+		msk, imms, err = cpu.getValue(mask, imms)
 		if err != nil {
-			err = errors.Join(ErrOpcodeCapp, ErrOpcodeMask, err)
+			err = errors.Join(ErrOpcodeCapp, ErrOpcodeArg2, err)
 			return
 		}
 		switch op {
@@ -466,19 +435,19 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			return
 		case CAPP_OP_LIST_ALL:
 			if match != IR_CONST_0 || mask != IR_CONST_0 {
-				err = errors.Join(ErrOpcodeCapp, ErrOpcodeMask, ErrOpcodeValue)
+				err = errors.Join(ErrOpcodeCapp, ErrOpcodeArg1, ErrOpcodeArg2)
 				return
 			}
 			cp.Action(capp.LIST_ALL, 0, 0)
 		case CAPP_OP_LIST_NOT:
 			if match != IR_CONST_0 || mask != IR_CONST_0 {
-				err = errors.Join(ErrOpcodeCapp, ErrOpcodeMask, ErrOpcodeValue)
+				err = errors.Join(ErrOpcodeCapp, ErrOpcodeArg1, ErrOpcodeArg2)
 				return
 			}
 			cp.Action(capp.LIST_NOT, 0, 0)
 		case CAPP_OP_LIST_NEXT:
 			if match != IR_CONST_0 || mask != IR_CONST_0 {
-				err = errors.Join(ErrOpcodeCapp, ErrOpcodeMask, ErrOpcodeValue)
+				err = errors.Join(ErrOpcodeCapp, ErrOpcodeArg1, ErrOpcodeArg2)
 				return
 			}
 			cp.Action(capp.LIST_NEXT, 0, 0)
@@ -497,12 +466,8 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			return
 		}
 	case OP_IO:
-		op := first.IoOp()
-		dst := first.Channel()
-		ir_value := first.Value()
-		ir_mask := first.Mask()
+		op, dst, ir_value := first.IoDecode()
 		var value uint32
-		var mask uint32
 		var set_await func(value uint32)
 		if op == IO_OP_AWAIT {
 			switch ir_value {
@@ -518,20 +483,15 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			case IR_STACK:
 				set_await = func(value uint32) { cpu.Stack.Push(value) }
 			default:
-				err = errors.Join(ErrOpcodeIo, ErrOpcodeTarget)
+				err = errors.Join(ErrOpcodeIo, ErrOpcodeArg2)
 				return
 			}
 		} else {
-			value, err = cpu.getValue(ir_value)
+			value, imms, err = cpu.getValue(ir_value, imms)
 			if err != nil {
-				err = errors.Join(ErrOpcodeIo, ErrOpcodeValue, err)
+				err = errors.Join(ErrOpcodeIo, ErrOpcodeArg2, err)
 				return
 			}
-		}
-		mask, err = cpu.getValue(ir_mask)
-		if err != nil {
-			err = errors.Join(ErrOpcodeIo, ErrOpcodeMask, err)
-			return
 		}
 		var channel Channel
 		channel, err = cpu.GetChannel(dst)
@@ -541,24 +501,19 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 		}
 		switch op {
 		case IO_OP_FETCH:
-			err = cpu.listInput(channel, value, mask)
+			err = cpu.listInput(channel, value)
 		case IO_OP_STORE:
-			err = cpu.listOutput(channel, value, mask)
+			err = cpu.listOutput(channel, value)
 		case IO_OP_ALERT:
-			channel.Alert(value & mask)
+			channel.Alert(value)
 		case IO_OP_AWAIT:
 			recv, ok := channel.Await()
 			if !ok {
 				// Don't advance to next IP.
 				next_ip = cpu.Ip
-				// Push-back IMM if mask was an IMM
-				if ir_mask == IR_IMMEDIATE_32 {
-					cpu.Immediate <<= 32
-					cpu.Immediate |= uint64(mask)
-				}
 			} else {
 				// Update as requested.
-				set_await(recv & mask)
+				set_await(recv)
 			}
 		default:
 			err = errors.Join(ErrOpcodeIo, ErrOpcodeOp)
@@ -566,6 +521,11 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 		}
 	default:
 		err = ErrOpcodeDecode
+		return
+	}
+
+	if len(imms) != 0 {
+		err = ErrOpcodeImm
 		return
 	}
 
@@ -580,17 +540,28 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 	return
 }
 
-func (cp *Cpu) getValue(src CodeIR) (value uint32, err error) {
+func (cp *Cpu) getValue(src CodeIR, imms_in []uint16) (value uint32, imms []uint16, err error) {
+	imms = imms_in
+
 	switch src {
 	case IR_CONST_0:
 		value = 0
-	case IR_CONST_1:
-		value = 1
 	case IR_CONST_FFFFFFFF:
 		value = 0xffffffff
+	case IR_IMMEDIATE_16:
+		if len(imms) < 1 {
+			err = ErrOpcodeImm
+			return
+		}
+		value = uint32(imms[0])
+		imms = imms[1:]
 	case IR_IMMEDIATE_32:
-		value = uint32(cp.Immediate & 0xffffffff)
-		cp.Immediate >>= 32
+		if len(imms) < 2 {
+			err = ErrOpcodeImm
+			return
+		}
+		value = (uint32(imms[0]) << 16) | uint32(imms[1])
+		imms = imms[2:]
 	case IR_IP:
 		// next_ip
 		value = cp.Ip + 1
@@ -618,9 +589,7 @@ func (cp *Cpu) getValue(src CodeIR) (value uint32, err error) {
 	return
 }
 
-func (cp *Cpu) doAlu(op CodeAluOp, input uint32, value uint32, mask uint32) (output uint32) {
-	value &= mask
-
+func (cp *Cpu) doAlu(op CodeAluOp, input uint32, value uint32) (output uint32) {
 	switch op {
 	case ALU_OP_SET: // set
 		output = value

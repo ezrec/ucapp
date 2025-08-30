@@ -22,16 +22,6 @@ const (
 	OP_COND = CodeClass(1) // if
 	OP_CAPP = CodeClass(2) // list
 	OP_IO   = CodeClass(3) // io
-	OP_IMM  = CodeClass(4) // imm
-)
-
-type CodeImmOp int
-
-//go:generate go tool stringer -linecomment -type=CodeImmOp
-const (
-	IMM_OP_LO32 = CodeImmOp(1) // lo32
-	IMM_OP_HI32 = CodeImmOp(2) // hi32
-	IMM_OP_OR16 = CodeImmOp(3) // or16
 )
 
 type CodeAluOp int
@@ -52,14 +42,10 @@ type CodeCondOp int
 
 //go:generate go tool stringer -linecomment -type=CodeCondOp
 const (
-	COND_OP_EQ       = CodeCondOp(0) // eq
-	COND_OP_LT       = CodeCondOp(1) // lt
-	COND_OP_GT       = CodeCondOp(2) // gt
-	COND_OP_UNUSED_3 = CodeCondOp(3) // [3]
-	COND_OP_NE       = CodeCondOp(4) // ne
-	COND_OP_GE       = CodeCondOp(5) // ge
-	COND_OP_LE       = CodeCondOp(6) // le
-	COND_OP_UNUSED_4 = CodeCondOp(7) // [7]
+	COND_OP_EQ = CodeCondOp(0) // eq
+	COND_OP_NE = CodeCondOp(1) // ne
+	COND_OP_LT = CodeCondOp(2) // lt
+	COND_OP_LE = CodeCondOp(3) // le
 )
 
 type CodeCappOp int
@@ -103,9 +89,9 @@ const (
 	IR_REG_FIRST      = CodeIR(10) // first
 	IR_REG_COUNT      = CodeIR(11) // count
 	IR_CONST_0        = CodeIR(12) // immz
-	IR_CONST_1        = CodeIR(13) // imm1
-	IR_CONST_FFFFFFFF = CodeIR(14) // immnz
-	IR_IMMEDIATE_32   = CodeIR(15) // imm
+	IR_CONST_FFFFFFFF = CodeIR(13) // immnz
+	IR_IMMEDIATE_16   = CodeIR(14) // imm16
+	IR_IMMEDIATE_32   = CodeIR(15) // imm32
 )
 
 func (ir CodeIR) Writable() bool {
@@ -131,118 +117,136 @@ type Opcode struct {
 	LinkLabel string
 }
 
-type Code uint32
-
-func MakeCodeImmediate(cond CodeCond, op CodeImmOp, value uint16) Code {
-	return Code((uint32(cond) << 18) | (uint32(op) << 16) | uint32(value))
+type Code struct {
+	Word       uint16
+	Immediates []uint16
 }
 
-func makeCond(cond CodeCond, op uint32) Code {
-	return Code((uint32(cond) << 18) | op)
+func makeCond(cond CodeCond, op uint16, imms ...uint16) Code {
+	return Code{
+		Word:       (uint16(cond) << 14) | op,
+		Immediates: imms,
+	}
 }
 
 func MakeCodeExit(cond CodeCond) Code {
-	return MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_CONST_FFFFFFFF, IR_CONST_FFFFFFFF)
+	return MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_CONST_FFFFFFFF)
 }
 
-func MakeCodeCapp(cond CodeCond, op CodeCappOp, src_v, src_m CodeIR) Code {
-	return makeCond(cond, (uint32(OP_CAPP)<<14)|(uint32(op)<<11)|(uint32(src_v)<<4)|(uint32(src_m)<<0))
+func MakeCodeCapp(cond CodeCond, op CodeCappOp, src_v, src_m CodeIR, imms ...uint16) Code {
+	return makeCond(cond, (uint16(OP_CAPP)<<11)|(uint16(op)<<8)|(uint16(src_v)<<4)|(uint16(src_m)<<0), imms...)
 }
 
-func MakeCodeIo(cond CodeCond, op CodeIoOp, channel CodeChannel, src_v, src_m CodeIR) Code {
-	return makeCond(cond, (uint32(OP_IO)<<14)|(uint32(op)<<11)|(uint32(channel)<<8)|(uint32(src_v)<<4)|(uint32(src_m)<<0))
+func MakeCodeIo(cond CodeCond, op CodeIoOp, channel CodeChannel, arg CodeIR, imms ...uint16) Code {
+	return makeCond(cond, (uint16(OP_IO)<<11)|(uint16(op)<<8)|(uint16(channel)<<4)|(uint16(arg)<<0), imms...)
 }
 
-func MakeCodeAlu(cond CodeCond, op CodeAluOp, target, src_v, src_m CodeIR) Code {
-	return makeCond(cond, (uint32(OP_ALU)<<14)|(uint32(op)<<11)|((uint32(target)&7)<<8)|(uint32(src_v)<<4)|(uint32(src_m)<<0))
+func MakeCodeAlu(cond CodeCond, op CodeAluOp, target, arg CodeIR, imms ...uint16) Code {
+	return makeCond(cond, (uint16(OP_ALU)<<11)|(uint16(op)<<8)|((uint16(target)&7)<<4)|(uint16(arg)<<0), imms...)
 }
 
-func MakeCodeCond(cond CodeCond, op CodeCondOp, src_a, src_b CodeIR) Code {
-	return makeCond(cond, (uint32(OP_COND)<<14)|(uint32(op)<<11)|(uint32(src_a)<<4)|(uint32(src_b)<<0))
+func MakeCodeCond(cond CodeCond, op CodeCondOp, arg_a, arg_b CodeIR, imms ...uint16) Code {
+	return makeCond(cond, (uint16(OP_COND)<<11)|(uint16(op)<<8)|(uint16(arg_a)<<4)|(uint16(arg_b)<<0), imms...)
 }
 
 func (code Code) Cond() CodeCond {
-	return CodeCond((uint32(code) >> 18) & 0x3)
+	word := uint16(code.Word)
+	return CodeCond((word >> 14) & 0x3)
 }
 
 func (code Code) Class() CodeClass {
-	if ((uint32(code) >> 16) & 0x3) != 0 {
-		return OP_IMM
+	word := uint16(code.Word)
+	return CodeClass((word >> 11) & 0x3)
+}
+
+func (code Code) AluDecode() (op CodeAluOp, target, arg CodeIR) {
+	word := uint16(code.Word)
+	op = CodeAluOp((word >> 8) & 0x7)
+	target = CodeIR((word >> 4) & 0xf)
+	arg = CodeIR((word >> 0) & 0xf)
+	return
+}
+
+func (code Code) CondDecode() (op CodeCondOp, arg1, arg2 CodeIR) {
+	word := uint16(code.Word)
+	op = CodeCondOp((word >> 8) & 0x7)
+	arg1 = CodeIR((word >> 4) & 0xf)
+	arg2 = CodeIR((word >> 0) & 0xf)
+	return
+}
+
+func (code Code) CappDecode() (op CodeCappOp, match, mask CodeIR) {
+	word := uint16(code.Word)
+	op = CodeCappOp((word >> 8) & 0x7)
+	match = CodeIR((word >> 4) & 0xf)
+	mask = CodeIR((word >> 0) & 0xf)
+	return
+}
+
+func (code Code) IoDecode() (op CodeIoOp, channel CodeChannel, arg CodeIR) {
+	word := uint16(code.Word)
+	op = CodeIoOp((word >> 8) & 0x7)
+	channel = CodeChannel((word >> 4) & 0xf)
+	arg = CodeIR((word >> 0) & 0xf)
+	return
+}
+
+func (code Code) ImmediateNeed() int {
+	class := code.Class()
+
+	a := IR_CONST_0
+	b := IR_CONST_0
+
+	switch class {
+	case OP_CAPP:
+		_, a, b = code.CappDecode()
+	case OP_IO:
+		_, _, a = code.IoDecode()
+	case OP_ALU:
+		_, _, a = code.AluDecode()
+	case OP_COND:
+		_, a, b = code.CondDecode()
 	}
 
-	return CodeClass((uint32(code) >> 14) & 0x3)
-}
+	need := 0
+	if a == IR_IMMEDIATE_16 {
+		need += 1
+	}
+	if b == IR_IMMEDIATE_16 {
+		need += 1
+	}
+	if a == IR_IMMEDIATE_32 {
+		need += 2
+	}
+	if b == IR_IMMEDIATE_32 {
+		need += 2
+	}
 
-func (code Code) ImmOp() CodeImmOp {
-	return CodeImmOp((uint32(code) >> 16) & 0x3)
-}
-
-func (code Code) AluOp() CodeAluOp {
-	return CodeAluOp((uint32(code) >> 11) & 0x7)
-}
-
-func (code Code) CondOp() CodeCondOp {
-	return CodeCondOp((uint32(code) >> 11) & 0x7)
-}
-
-func (code Code) CappOp() CodeCappOp {
-	return CodeCappOp((uint32(code) >> 11) & 0x7)
-}
-
-func (code Code) IoOp() CodeIoOp {
-	return CodeIoOp((uint32(code) >> 11) & 0x7)
-}
-
-func (code Code) Channel() CodeChannel {
-	return CodeChannel((uint32(code) >> 8) & 0x7)
-}
-
-func (code Code) Target() CodeIR {
-	return CodeIR((uint32(code) >> 8) & 0x7)
-}
-
-func (code Code) Value() CodeIR {
-	return CodeIR((uint32(code) >> 4) & 0xf)
-}
-
-func (code Code) Match() CodeIR {
-	return CodeIR((uint32(code) >> 4) & 0xf)
-}
-
-func (code Code) Mask() CodeIR {
-	return CodeIR((uint32(code) >> 0) & 0xf)
+	return need
 }
 
 func (code Code) String() (out string) {
 	cond := code.Cond()
 	class := code.Class()
-	val := code.Value()
-	msk := code.Mask()
 
-	var op_str string
-	var dst_str string
+	var str string
 
 	switch class {
-	case OP_IMM:
-		op := code.ImmOp()
-		op_str = op.String()
-		out = fmt.Sprintf(".imm.%v.0%04x", op_str, uint32(code)&0xffff)
-		return
 	case OP_CAPP:
-		dst_str = "-"
-		op_str = code.CappOp().String()
+		op, match, mask := code.CappDecode()
+		str = fmt.Sprintf("%v.%v.%v", op.String(), match.String(), mask.String())
 	case OP_IO:
-		dst_str = code.Channel().String()
-		op_str = code.IoOp().String()
+		op, channel, arg := code.IoDecode()
+		str = fmt.Sprintf("%v.%v.%v", op.String(), channel.String(), arg.String())
 	case OP_ALU:
-		dst_str = code.Target().String()
-		op_str = code.AluOp().String()
+		op, target, arg := code.AluDecode()
+		str = fmt.Sprintf("%v.%v.%v", op.String(), target.String(), arg.String())
 	case OP_COND:
-		dst_str = "-"
-		op_str = code.CondOp().String()
+		op, arg1, arg2 := code.CondDecode()
+		str = fmt.Sprintf("%v.%v.%v", op.String(), arg1.String(), arg2.String())
 	}
 
-	out = fmt.Sprintf("%v%v.%v.%v.%v.%v", cond.String(), class.String(), op_str, dst_str, val.String(), msk.String())
+	out = fmt.Sprintf("%v%v.%v imm:%#v", cond.String(), class.String(), str, code.Immediates)
 
 	return
 }

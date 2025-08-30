@@ -310,6 +310,9 @@ and MASK was 0x00000f0f, and the first tagged cell was 0, and VALUE
 was `0x1234_0000` it would be replaced with
 `0b0001_0010_0011_0100_0000_0011_0000_0101` (0x12340305).
 
+If MASK is omitted, all 32 bits of each CAPP cell is fetched. If VALUE is
+omitted, it is assumed to be zero.
+
 Once all of the bits from BITS are loaded into the first SELECTED and
 TAGGED CAPP cell, the cell's TAGGED bit will be set to false, and
 IO will proceed with the next SELECTED and TAGGED CAPP cell.
@@ -318,7 +321,7 @@ If not enough CAPP cells are available to read the entire bitstream,
 the next `io fetch CHANNEL` operation for this channel will continue
 from where it left off.
 
-#### io store CHANNEL VALUE MASK
+#### io store CHANNEL [VALUE [MASK]]
 
 Store the SELECTED and TAGGED cells of the CAPP to the channel
 bitstream.
@@ -326,6 +329,9 @@ bitstream.
 The MASK argument defines the locations in the CAPP cell that will be
 stored to the channel bitstream, in LSB to MSB order. VALUE is ORed with
 the cell's data before sending to the channel bitstream.
+
+If MASK is omitted, all 32 bits of each CAPP cell is stored. If VALUE is
+omitted, it is assumed to be zero.
 
 Once all of the bits from MASK are stored from the first SELECTED and
 TAGGED CAPP cell, the cell's TAGGED bit will be set to false, and
@@ -336,10 +342,10 @@ IO will proceed with the next SELECTED and TAGGED CAPP cell.
 Send an alert to the channel. See channel specific documentation for
 various alert codes.
 
-#### io await CHANNEL [TARGET]
+#### io await CHANNEL [REG]
 
-Halt the CPU until data is available on the channel. If TARGET is
-a valid writable register, then the awaited value is stored in TARGET.
+Halt the CPU until data is available on the channel. If REG is
+a valid writable register, then the awaited value is stored in REG.
 
 ### Flow Control
 

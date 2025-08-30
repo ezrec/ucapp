@@ -39,7 +39,7 @@ func doRunSingle(emu *Emulator, program []string, input []byte, t *testing.T) (o
 		here := program[emu.LineNo()-1]
 		for c := range len(op.Codes) {
 			assert.Equal(emu.Cpu.Ip, uint32(op.Ip+c), here)
-			debug := emu.Program.Debug(uint16(emu.Cpu.Ip & 0x3ff))
+			debug := emu.Program.Debug(uint16(emu.Cpu.Ip))
 			done, err := emu.Tick()
 			assert.NoError(err)
 			if err != nil {
@@ -100,7 +100,7 @@ func TestEmulatorRegisters(t *testing.T) {
 	program := []string{
 		"list of ARENA_FREE ARENA_MASK",
 		"list all",
-		"fetch tape 0 0xffff",
+		"fetch tape 0xffff",
 		"list not",
 		"write list ARENA_IO 0xffff0000",
 		"list of $(ARENA_IO | 0x123) $(ARENA_MASK | 0x7ff)", // match & mask
@@ -109,7 +109,7 @@ func TestEmulatorRegisters(t *testing.T) {
 		"write r2 0x30", // r2
 		"write r3 0x40", // r3
 		"list all",      // first = 0x123, count = 2
-		"store tape 0 0xffff",
+		"store tape 0xffff",
 		"list not",
 	} // ip = 6
 
@@ -241,7 +241,7 @@ func TestEmulatorSystemMacro(t *testing.T) {
 	program := []string{
 		"list of ARENA_FREE ARENA_MASK",
 		"list all",
-		"fetch tape 0 0xffff",
+		"fetch tape 0xffff",
 		"list not",
 		"write list ARENA_IO 0xffff0000",
 		"write r0 0x10",
@@ -253,7 +253,7 @@ func TestEmulatorSystemMacro(t *testing.T) {
 		"write list ARENA_IO ARENA_MASK",
 		"list of ARENA_IO ARENA_MASK",
 		"list all",
-		"store tape 0 0xffff",
+		"store tape 0xffff",
 		"list not",
 	}
 
@@ -276,23 +276,22 @@ func TestEmulatorTemp(t *testing.T) {
 	program := []string{
 		"list of ARENA_FREE ARENA_MASK",
 		"list all",
-		"fetch tape 0 0xffff",
+		"fetch tape 0xffff",
 		"list not",
 		"write list ARENA_IO 0xffff0000",
 		"list of ARENA_IO ARENA_MASK",
-		"store temp 0 0xffff", // store to temp
+		"store temp 0xffff", // store to temp
 		"list not",
 		"write list ARENA_FREE ARENA_MASK",
-		"fetch temp 0 0xffff",
+		"fetch temp 0xffff",
 		"list not",
 		"write list 0x9000 0xf000",
-		"store tape 0 0xffff",
+		"store tape 0xffff",
 		"list not",
 	}
 
 	input := []uint8{0x34, 0x12, 0x78, 0x56, 0xcd, 0xab}
 
-	emu.Verbose = true
 	output := doRunSingle(emu, program, input, t)
 
 	assert.Equal([]uint8{0x34, 0x92, 0x78, 0x96, 0xcd, 0x9b}, output)

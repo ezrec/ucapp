@@ -18,8 +18,8 @@ The μCAPP can access a number of I/O peripherals, which are mapped as follows:
 ### IO Operations
 
 ```
-.io store temp VALUE ; store bits from tagged cells at SHIFT to temp
-.io fetch temp SHIFT ; fetch bit data from temp into tagged cells at SHIFT
+store temp MASK ; store bits from tagged cells in MASK to temp
+fetch temp MASK ; fetch bit data from temp into tagged cells according to MASK
 ```
 
 ## Depot
@@ -29,16 +29,15 @@ A depot is a storage device, which consists of several storage drums (each with 
 ### IO Operations
 
 ```
-.io fetch depot SHIFT ; fetch currently selected drum/ring into 8 bits of tags at SHIFT
-.io store depot SHIFT ; append tags' 8 bits at SHIFT to currently selected drum/ring
-.io alert depot ((0x0 << 23) | DRUM) ; Select a specific drum (20 bits)
-.io alert depot ((0x1 << 23) | (0 << 8) | RING) ; Select a specific ring (8 bits).
-.io alert depot ((0x1 << 23) | (1 << 8) | 0) ; Reset current ring's read pointer.
-.io alert depot ((0x1 << 23) | (1 << 8) | 1) ; Reset current ring's write pointer.
+fetch depot MASK ; fetch currently selected drum/ring into bits of tags in MASK
+store depot MASK ; append tags' MASK bits to currently selected drum/ring
+alert depot ((0x0 << 23) | DRUM) ; Select a specific drum (20 bits)
+alert depot ((0x1 << 23) | (0 << 8) | RING) ; Select a specific ring (8 bits).
+alert depot ((0x1 << 23) | (1 << 8) | 0) ; Reset current ring's read pointer.
+alert depot ((0x1 << 23) | (1 << 8) | 1) ; Reset current ring's write pointer.
 ```
 
 NOTE: A read of a ring cannot go past its current write pointer.
-
 
 ### Drum
 
@@ -65,10 +64,7 @@ Hello World!
 - 4-byte magic word `\xb5RNG`
 - 1-byte length of metadata including this byte (set to `8` in this version)
 - 1-byte length (as a power of 2, up to 32) of the ring.
-- 1-byte attribute flags
-  - bit 2: read permitted
-  - bit 1: write permitted
-  - bit 0: executable
+- 1-byte unused (set at zero)
 - 1-byte unused (set at zero)
 - 4-byte (little endian) last-written-value index.
 - The remainder is a byte array.
@@ -108,31 +104,13 @@ A tape is a byte stream, and can be specified to the μCAPP emulator with the `-
 ### IO Operations
 
 ```
-.io fetch tape ; Load input tape into lower 8 bits of tagged cells.
-.io store tape ; Append lower 8 bits of tagged cells to output tape.
+fetch tape MASK ; Load input tape into MASK bits of tagged cells.
+store tape MASK ; Append MASK bits of tagged cells to output tape.
 ```
 
 ### Reading
 
-When being read (using the `.io fetch tape` opcode) the 8-bit read value from the input tape is extended to the full CAPP width by an index that increments on every read. For example, reading 'Hello' will result in the following CAPP word values being send to the currently tagged CAPP words (assuming a 32 bit CAPP):
-
-```
-0x000000_48
-0x000001_65
-0x000002_6c
-0x000003_6c
-0x000004_6f
-```
-
 If insufficient tagged CAPP entries are available for the read, the remainder of the tape segment is left unread.
-
-The optional VALUE and MASK opcode parameters are ignored, and should be left as their defaults.
-
-### Writing
-
-When writing to the output table, only the lower 8 bits of the tagged CAPP words will be written. Use the `.io store tape` opcode to write tagged CAPP entries to the tape.
-
-The optional VALUE and MASK opcode parameters are ignored, and should be left as their defaults.
 
 ## Virtual Terminal (VT)
 
@@ -141,13 +119,13 @@ The Virtual Terminal (VT) provides a full screen UTF-8 terminal.
 ### IO Operations
 
 ```
-.io fetch vt SHIFT ; Read 8-bit keycode from the VT input buffer to tagged cells
-.io store vt       ; Write tagged calls to VT display
+fetch vt 0xFF ; Read 8-bit keycode from the VT input buffer to tagged cells
+store vt 0x3FFF_FFFF      ; Write tagged cells to VT display
 ```
 
 ### Reading
 
-Using the `.io fetch vt 0 0xffff` opcode, the tagged CAPP cells' lower 16 bits are replaced with the keystroke scan code of the next keys in the VT key queue.
+Using the `fetch vt 0xff` opcode, the tagged CAPP cells' lower 8 bits are replaced with the keystroke scan code of the next keys in the VT key queue.
 
 The VT can address a matrix of up to 128x64 cells.
 
@@ -155,11 +133,11 @@ See [io/KEYMAP.md](io/KEYMAP.md) for the complete key mapping.
 
 ### Writing
 
-Using the `.io store vt`, modify the VT's frame buffer with the tagged CAPP cells' lower 24 bits.
+Using the `store vt 0x3FFF_FFFF`, modify the VT's frame buffer with the tagged CAPP cells' lower 24 bits.
 
 | Bits | Purpose | Comment |
 | ---- | ---     | --- |
-| 0..7 | UTF-8 | UTF-8 value |
+| 0..7 | Glyph | Glyph value |
 | 8 | Unused | Unused |
 | 9 | Unused | Unused |
 | 10 | 0 | Indicates cell content write |
@@ -178,9 +156,63 @@ Using the `.io store vt`, modify the VT's frame buffer with the tagged CAPP cell
 
 The VT will always use the most recently written row/col value.
 
-## ROM
+## Monitor
 
-The ROM channel contains the boot ROM for the system. It is bitstream of 32 bit wide words (2 bits of arena ID, 10 bits of IP data, and 20 bits of opcode), which is loaded in at machine reset.
+The Monitor channel contains the boot ROM for the CPU, and is the target for inter-drum communication. It is bitstream of 32 bit wide words (2 bits of arena ID, 10 bits of IP data, and 20 bits of opcode), which is loaded in at machine reset.
 
 See [cpu/README.md](cpu/README.md) for bootstrap details.
 
+After bootstrap is complete, the Monitor is available for inter-process communication use between drums.
+
+### Inter-Process Communication
+
+Inter-process communication can be done between any two drums in the depot.
+
+#### Call Procedure
+
+```
+; select a drum to communicate with. Ring should be set to 0xff (active CPU)
+io alert depot $((DRUM_ID << 8) | 0xff)
+; await the drum's readyness.
+io await depot r0
+; (optional) check return code
+if ne? r0 0
+? exit
+; send the IPC key for the function call to the Monitor
+io alert monitor SOME_IPC_FUNCTION_KEY
+; (optional) send any parameter data
+io store monitor
+list not
+list write ARENA_FREE ARENA_MASK
+; (optional) fetch any result data
+list of ARENA_FREE ARENA_MASK
+list all
+io fetch monitor
+list not
+; await response code
+io await monitor r0
+; (optional) check return code
+if ne? r0 0
+? exit
+```
+
+#### Inter-Process Communication Server
+
+```
+LOOP:
+; await a remote IPC on the monitor
+io await monitor r0
+; (optional) read data from the monitor channel
+list of ARENA_FREE ARENA_MASK
+list all
+io fetch monitor
+list not
+; switch based off the key to the action to perform
+if eq? r0 SOME_IPC_FUNCTION_KEY
+? call SOME_IPC_FUNCTION_HANDLER ; result is in r0
+; (optional) store result data to the monitor channel
+io store monitor
+list not
+; alert with result code
+io alert monitor r0
+```
