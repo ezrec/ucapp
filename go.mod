@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	go.starlark.net v0.0.0-20251109183026-be02852a5e1f
 	golang.org/x/text v0.31.0
 )
