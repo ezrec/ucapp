@@ -5,9 +5,9 @@
 ### Compiled Instruction Area
 
 ```
-   10 bit IP |          20 bit opcode |
+   14 bit IP |          16 bit opcode |
              v                        v
-10aa aaaa aaaa oooo oooo oooo oooo oooo
+10aa aaaa aaaa aaaa oooo oooo oooo oooo
  ^
  | Arena ID (10) for code
 ```
@@ -117,24 +117,28 @@ if ge? A B
   10 - if cond is false
   11 - never execute
 
-## ENCODING: cciixxooorrrvvvvmmmm
+## ENCODING
 
-cc: Condition code
-ii: Immediate subcode, or 0b00 for instruction
+cc: Conditional?
 xx: Instruction class
 aaa: ALU Operation
 iii: If Operation
 lll: CAPP list operation
+oo: Channel operation
 rrr: Register ID/Channel number
-vvvv: Value IR
-mmmm: Mask IR
-
+VVVV: Value IR
+AAAA: Conditional IR
+BBBB: Conditional IR
+CCC: Channel Index
+MMMM: Mask IR
+AAAA: Arg IR
+IIII: Immediate value to shift in
 ```
 .alu.OP R V           16 - cc 000 aaa 0rrr VVVV
-.if.OP A B            16 - cc 001 0ii AAAA BBBB
+.if.OP A B            18 - cc 001 0ii AAAA BBBB
 .list.OP V M          16 - cc 010 lll VVVV MMMM
 .io OP CHANNEL ARG    16 - cc 011 0oo 0CCC AAAA
-.imm YYYY             16 - YY YYY YYY YYYY YYYY -> imm = ((imm << 16) | 0xYYYY)
+.imm 0xNNN            16 - aa aaa aaa aaaa aaaa  imm = (imm << 16)
 ```
 
 fetch CHANNEL MASK
