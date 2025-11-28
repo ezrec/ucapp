@@ -139,6 +139,7 @@ IIII: Immediate value to shift in
 .list.OP V M          16 - cc 010 lll VVVV MMMM
 .io OP CHANNEL ARG    16 - cc 011 0oo 0CCC AAAA
 .imm 0xNNN            16 - aa aaa aaa aaaa aaaa  imm = (imm << 16)
+    ; NOTE: .imm follows the opcode, and is in the same OPCODE PC index!
 ```
 
 fetch CHANNEL MASK

@@ -20,7 +20,7 @@ func main() {
 	var output string
 	var verbose bool
 
-	flag.StringVar(&compile, "c", "", ".ucapp file to compile")
+	flag.StringVar(&compile, "c", "", ".uc file to compile")
 	flag.StringVar(&ring, "r", "", ".ring file to use")
 	flag.StringVar(&drum, "d", "", ".drum file to use")
 	flag.BoolVar(&save, "s", false, "Save CAPP to ring, do not execute")
