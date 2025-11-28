@@ -178,8 +178,29 @@ func (asm *Assembler) parseLine(line string, lineno int) (words []string, err er
 	// Set line number.
 	asm.Equate["LINENO"] = fmt.Sprintf("%v", lineno)
 
+	// Do 'x' evaluations
+	re := regexp.MustCompile(`'\\?[^']'`)
+	line = re.ReplaceAllStringFunc(line, func(str string) string {
+		str = str[1 : len(str)-1]
+		switch str {
+		case "\\\\":
+			str = "\\"
+		case "\\n":
+			str = "\n"
+		case "\\r":
+			str = "\r"
+		case "\\e":
+			str = "\033"
+		default:
+			if str[0] == '\\' {
+				return str
+			}
+		}
+		return fmt.Sprintf("%v", str[0])
+	})
+
 	// Do $() evaluations
-	re := regexp.MustCompile(`\$\([^\$]*\)`)
+	re = regexp.MustCompile(`\$\([^\$]*\)`)
 	line = re.ReplaceAllStringFunc(line, func(str string) string {
 		value, _err := asm.parenEval(str[2 : len(str)-1])
 		if _err != nil {
