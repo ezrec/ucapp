@@ -1,4 +1,4 @@
-package channel
+package io
 
 const (
 	DRUM_OP_MASK        = (1 << 8)

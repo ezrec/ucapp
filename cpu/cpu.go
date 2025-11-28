@@ -7,10 +7,10 @@ import (
 	"math/bits"
 
 	"github.com/ezrec/ucapp/capp"
-	"github.com/ezrec/ucapp/channel"
+	"github.com/ezrec/ucapp/io"
 )
 
-type Channel channel.Channel
+type Channel io.Channel
 
 const (
 	IP_MODE_CAPP  = uint32(0b00 << 30)

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/ezrec/ucapp/channel"
+	"github.com/ezrec/ucapp/io"
 	"github.com/ezrec/ucapp/cpu"
 )
 
@@ -22,10 +22,10 @@ type Emulator struct {
 	*cpu.Cpu
 	Program *cpu.Program
 
-	Temporary channel.Temporary
-	Tape      channel.Tape
-	Depot     channel.Depot
-	Rom       channel.Rom
+	Temporary io.Temporary
+	Tape      io.Tape
+	Depot     io.Depot
+	Rom       io.Rom
 }
 
 // NewEmulator creates a new emulator.

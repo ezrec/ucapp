@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ezrec/ucapp/capp"
-	"github.com/ezrec/ucapp/channel"
+	"github.com/ezrec/ucapp/io"
 )
 
 func shl(input uint32, rot uint32) uint32 {
@@ -70,7 +70,7 @@ func FuzzCpu(f *testing.F) {
 			cpu.Stack.Push(0xabcd1234)
 		}
 
-		tape := &channel.Tape{}
+		tape := &io.Tape{}
 
 		tape_output := &bytes.Buffer{}
 		tape.Output = tape_output
