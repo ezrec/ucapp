@@ -6,6 +6,7 @@ import (
 
 var f = translate.From
 
+// ErrRuntime indicates the location of a runtime error.
 type ErrRuntime struct {
 	LineNo int
 	Err    error

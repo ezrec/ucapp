@@ -6,26 +6,26 @@ import (
 	"errors"
 	"log"
 
-	"github.com/ezrec/ucapp/io"
 	"github.com/ezrec/ucapp/cpu"
+	"github.com/ezrec/ucapp/io"
 )
 
 const (
-	CAPP_TICK_COST = 1
-	ALU_TICK_COST  = 4
-	STACK_LIMIT    = 16
+	CAPP_TICK_COST = 1    // Cost of a single CAPP tick.
+	ALU_TICK_COST  = 4    // Cost of an ALU tick.
 	CAPP_SIZE      = 8192 // 4K for program text, 1K for compiled, 3K for work
 )
 
+// Emulator state. CPU + CAPP + IO channels.
 type Emulator struct {
-	Verbose bool
-	*cpu.Cpu
-	Program *cpu.Program
+	Verbose  bool         // If set, enables verbose logging.
+	*cpu.Cpu              // Reference to the CPU simulation.
+	Program  *cpu.Program // Reference to the currently running program listing.
 
-	Temporary io.Temporary
-	Tape      io.Tape
-	Depot     io.Depot
-	Rom       io.Rom
+	Temporary io.Temporary // Temporary buffer IO channel.
+	Tape      io.Tape      // Tape IO channel.
+	Depot     io.Depot     // Depot (Drum and Ring) IO channel.
+	Rom       io.Rom       // ROM IO channel.
 }
 
 // NewEmulator creates a new emulator.
@@ -114,6 +114,7 @@ func (emu *Emulator) LineNo() int {
 	return 0
 }
 
+// Tick performs a single tick of the emulator.
 func (emu *Emulator) Tick() (done bool, err error) {
 	// Set CPU verbosity
 	emu.Cpu.Verbose = emu.Verbose
