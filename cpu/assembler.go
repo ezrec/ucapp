@@ -602,9 +602,9 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	case len(words) >= 1 && words[0] == "alert":
 		words = append([]string{"io"}, words...)
 	case len(words) == 1 && words[0] == "return":
-		words = append([]string{"alu", "set", "ip", "stack"})
+		words = []string{"alu", "set", "ip", "stack"}
 	case len(words) == 2 && words[0] == "vjump":
-		words = append([]string{"alu", "set", "ip", words[1]})
+		words = []string{"alu", "set", "ip", words[1]}
 	default:
 		// unchanged
 	}

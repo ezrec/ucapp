@@ -314,7 +314,7 @@ func FuzzCpu(f *testing.F) {
 		case OP_ALU:
 			op, dst, arg := code.AluDecode()
 			input, imms := get_value(dst, imms)
-			value, imms := get_value(arg, imms)
+			value, _ := get_value(arg, imms)
 			output, squash := now_value(dst)
 			var expected uint32
 			switch op {
@@ -342,7 +342,7 @@ func FuzzCpu(f *testing.F) {
 		case OP_CAPP:
 			op, ir_match, ir_mask := code.CappDecode()
 			value, imms := get_value(ir_match, imms)
-			mask, imms := get_value(ir_mask, imms)
+			mask, _ := get_value(ir_mask, imms)
 			expect_first := pre_value[IR_REG_FIRST]
 			expect_count := pre_value[IR_REG_COUNT]
 			expect_match := pre_value[IR_REG_MATCH]
@@ -388,8 +388,7 @@ func FuzzCpu(f *testing.F) {
 			assert.Equal(expect_mask, cpu.Mask, code_str)
 		case OP_IO:
 			op, ch, ir_mask := code.IoDecode()
-			var mask uint32
-			mask, imms = get_value(ir_mask, imms)
+			mask, _ := get_value(ir_mask, imms)
 			expect_first := pre_value[IR_REG_FIRST]
 			expect_count := pre_value[IR_REG_COUNT]
 			expect_match := pre_value[IR_REG_MATCH]
@@ -436,7 +435,7 @@ func FuzzCpu(f *testing.F) {
 		case OP_COND:
 			op, a_ir, b_ir := code.CondDecode()
 			a, imms := get_value(a_ir, imms)
-			b, imms := get_value(b_ir, imms)
+			b, _ := get_value(b_ir, imms)
 			var cond bool
 			switch op {
 			case COND_OP_EQ:

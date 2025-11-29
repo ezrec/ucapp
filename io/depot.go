@@ -20,13 +20,12 @@ func (depot *Depot) selectDrum(index uint32) {
 	if depot.Drums == nil {
 		depot.Drums = make(map[uint32](*Drum))
 	}
-	drum, ok := depot.Drums[index]
+	_, ok := depot.Drums[index]
 	if !ok {
-		drum = &Drum{}
+		drum := &Drum{}
 		drum.Reset()
 		depot.Drums[index] = drum
 	}
-	return
 }
 
 func (depot *Depot) Reset() {
