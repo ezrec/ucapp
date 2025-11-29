@@ -9,9 +9,7 @@ import (
 
 func slum(size int, items ...uint8) (arr []uint8) {
 	arr = make([]uint8, len(items), size)
-	for n, item := range items {
-		arr[n] = item
-	}
+	copy(arr, items)
 	return
 }
 
