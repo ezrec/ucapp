@@ -91,7 +91,7 @@ func (err ErrParseCharacter) Error() string {
 	return f("'%v' is not a single byte character", string(err))
 }
 
-// ErrParseNumber indicates a numeric persing failure.
+// ErrParseNumber indicates a numeric parsing failure.
 type ErrParseNumber string
 
 func (err ErrParseNumber) Error() string {

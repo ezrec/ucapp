@@ -45,7 +45,7 @@ func (prog *Program) Binary() (bins []uint32) {
 	return
 }
 
-// Codes returns an interator over all of IPs and instruction codes of the program.
+// Codes returns an iterator over all of IPs and instruction codes of the program.
 func (prog *Program) Codes() iter.Seq2[uint16, Code] {
 	return func(yield func(ip uint16, code Code) bool) {
 		for _, op := range prog.Opcodes {
