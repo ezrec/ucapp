@@ -10,13 +10,13 @@ import (
 	"slices"
 )
 
-// Individual CAPP cell
+// Cell is an individual CAPP data cell.
 type Cell struct {
-	Set     [2]bool
-	Tag     bool
-	Data    uint32
-	Next    *Cell
-	Changed bool
+	Set     [2]bool // SET bit state, and swapped SET bit state.
+	Tag     bool    // TAG bit state.
+	Data    uint32  // Data held by this cell.
+	Next    *Cell   // Pointer to the next cell in the SET.
+	Changed bool    // Set when the cell has been changed by operation.
 }
 
 // Computational Associative Parallel Processor
