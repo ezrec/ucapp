@@ -7,3 +7,4 @@ cover.out
 testdata
 tags
 *_string.go
+*.out
