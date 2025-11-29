@@ -19,7 +19,7 @@ const (
 	IP_MODE_MASK  = uint32(0b11 << 30) // Mask of execute modes.
 )
 
-// Cpu is the sumlation context for the control CPU attached to the CAPP
+// Cpu is the simulation context for the control CPU attached to the CAPP
 type Cpu struct {
 	Verbose bool // Set to enable verbose logging.
 
@@ -151,7 +151,7 @@ func (cpu *Cpu) SetChannel(index CodeChannel, channel Channel) {
 	cpu.channel[int(index)] = channel
 }
 
-// GetChannel gets the channel simulatiom model by index.
+// GetChannel gets the channel simulation model by index.
 func (cpu *Cpu) GetChannel(ch CodeChannel) (channel Channel, err error) {
 	index := int(ch)
 	if index >= len(cpu.channel) || cpu.channel[index] == nil {
