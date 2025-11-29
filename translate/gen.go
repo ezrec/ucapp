@@ -1,4 +1,8 @@
 package translate
 
+import (
+	_ "golang.org/x/text/message"
+)
+
 //                                                         -lang=en-US,de-DE,fr-CH, etc etc etc
-//go:generate go tool gotext -srclang=en-US update -out=catalog.go -lang=en-US github.com/ezrec/ucapp
+//go:generate go tool gotext -srclang=en-US update -out=catalog.go -lang=en-US ../.
