@@ -13,30 +13,32 @@ import (
 type Channel io.Channel
 
 const (
-	IP_MODE_CAPP  = uint32(0b00 << 30)
-	IP_MODE_STACK = uint32(0b01 << 30)
-	IP_MODE_REG   = uint32(0b10 << 30)
-	IP_MODE_MASK  = uint32(0b11 << 30)
+	IP_MODE_CAPP  = uint32(0b00 << 30) // Execute from CAPP
+	IP_MODE_STACK = uint32(0b01 << 30) // Execute from stack
+	IP_MODE_REG   = uint32(0b10 << 30) // Execute from register bank
+	IP_MODE_MASK  = uint32(0b11 << 30) // Mask of execute modes.
 )
 
+// Cpu is the sumlation context for the control CPU attached to the CAPP
 type Cpu struct {
-	Verbose bool
+	Verbose bool // Set to enable verbose logging.
 
-	Capp *capp.Capp
+	Capp *capp.Capp // Reference to the CAPP simulation.
 
-	Ip       uint32
-	Register [6]uint32
-	Stack    Stack
-	Match    uint32
-	Mask     uint32
-	Cond     bool
+	Ip       uint32    // Current instruction pointer.
+	Register [6]uint32 // Register bank.
+	Stack    Stack     // Stack simulation.
+	Match    uint32    // Match value sent to the CAPP.
+	Mask     uint32    // Mask value sent to the CAPP.
+	Cond     bool      // Current conditional execution state.
 
-	Power int
-	Ticks int
+	Power int // Power (bits flipped) counter.
+	Ticks int // CPU ticks counter.
 
-	channel [8]Channel
+	channel [8]Channel // IO channels.
 }
 
+// Create a new CPU with a specifically sized CAPP.
 func NewCpu(count uint) (cpu *Cpu) {
 	cpu = &Cpu{
 		Capp: capp.NewCapp(count),
@@ -45,11 +47,12 @@ func NewCpu(count uint) (cpu *Cpu) {
 	return
 }
 
+// String returns the current CPU state as a string.
 func (cpu *Cpu) String() (text string) {
 	regs := []string{
 		"ip",
 		"cond",
-		"r0", "r1", "r2", "r3", "r4",
+		"r0", "r1", "r2", "r3", "r4", "r5",
 		"stack",
 		"match", "mask", "first", "count",
 	}
@@ -94,6 +97,12 @@ func (cpu *Cpu) String() (text string) {
 	return
 }
 
+// Reset the CPU state.
+// - Clears the registers, stack, and CAPP.
+// - Zeros statistics counters.
+// - Resets all IO channels.
+// - Installs trampoline to boot from CAPP in register bank.
+// - Sets CPU execution mode to boot-from-register bank.
 func (cpu *Cpu) Reset() (err error) {
 	clear(cpu.Register[:])
 	cpu.Stack.Reset()
@@ -107,9 +116,6 @@ func (cpu *Cpu) Reset() (err error) {
 		}
 		channel.Reset()
 	}
-
-	// Set IP to run from registers
-	cpu.Ip = IP_MODE_REG
 
 	// r0: .list.of.immz.immz        ; Select all of the CAPP
 	// r1: .list.all.-.-             ; Tag all items
@@ -134,13 +140,18 @@ func (cpu *Cpu) Reset() (err error) {
 		cpu.Register[n] = uint32(code.Word)
 	}
 
+	// Set IP to run from registers
+	cpu.Ip = IP_MODE_REG
+
 	return
 }
 
+// SetChannel sets a channel index to a channel simulation model.
 func (cpu *Cpu) SetChannel(index CodeChannel, channel Channel) {
 	cpu.channel[int(index)] = channel
 }
 
+// GetChannel gets the channel simulatiom model by index.
 func (cpu *Cpu) GetChannel(ch CodeChannel) (channel Channel, err error) {
 	index := int(ch)
 	if index >= len(cpu.channel) || cpu.channel[index] == nil {
@@ -152,6 +163,16 @@ func (cpu *Cpu) GetChannel(ch CodeChannel) (channel Channel, err error) {
 	return
 }
 
+// listInput reads from a channel into the active list in the CAPP.
+// For each tagged item in the list:
+//   - For each set bit in 'mask':
+//   - Collect the next bit from the input, starting at LSB.
+//   - Replace the masked bits in the list's first entry with read value.
+//   - Advance the list to the next entry.
+//
+// Reads until end of input, or the active list is empty.
+// If the read is short, the active list count is the remaining
+// available space.
 func (cpu *Cpu) listInput(in Channel, mask uint32) (err error) {
 	inputs := in.Receive()
 	cp := cpu.Capp
@@ -187,6 +208,14 @@ func (cpu *Cpu) listInput(in Channel, mask uint32) (err error) {
 	return
 }
 
+// listOutput writes to a channel from the active list in the CAPP.
+// For each tagged item in the list:
+//   - For each set bit in 'mask':
+//   - Write the next bit from the list's first entry to the output,
+//     starting at LSB.
+//   - Advance the list to the next entry.
+//
+// Writes until the active list is empty.
 func (cpu *Cpu) listOutput(out Channel, mask uint32) (err error) {
 	cp := cpu.Capp
 
@@ -210,6 +239,7 @@ func (cpu *Cpu) listOutput(out Channel, mask uint32) (err error) {
 	return
 }
 
+// FetchCode collects the next code to execute, based on the IP.
 func (cpu *Cpu) FetchCode() (code Code, err error) {
 	if cpu.Ip == 0xffffffff {
 		err = ErrIpEmpty
@@ -265,6 +295,7 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 	return
 }
 
+// Tick execute a single CPU tick.
 func (cpu *Cpu) Tick() (err error) {
 	// Set CAPP verbosity
 	cpu.Capp.Verbose = cpu.Verbose
@@ -297,14 +328,15 @@ func (cpu *Cpu) Tick() (err error) {
 	return
 }
 
-func (cpu *Cpu) Execute(first Code) (err error) {
+// Execute performs the actions of a CPU code.
+func (cpu *Cpu) Execute(code Code) (err error) {
 	defer func() {
 		if err != nil {
-			err = errors.Join(ErrOpcode(first), err)
+			err = errors.Join(ErrOpcode(code), err)
 		}
 	}()
 	if cpu.Verbose {
-		log.Printf("%03x: %v", cpu.Ip, first)
+		log.Printf("%03x: %v", cpu.Ip, code)
 	}
 
 	cp := cpu.Capp
@@ -319,29 +351,29 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 
 	no_op := MakeCodeAlu(COND_ALWAYS, ALU_OP_OR, IR_REG_R0, IR_CONST_0)
 
-	cond := first.Cond()
+	cond := code.Cond()
 	switch cond {
 	case COND_ALWAYS:
 		// pass
 	case COND_NEVER:
-		return ErrOpcode(first)
+		return ErrOpcode(code)
 	case COND_TRUE:
 		if !cpu.Cond {
 			// Convert to no-op
-			first = no_op
+			code = no_op
 		}
 	case COND_FALSE:
 		if cpu.Cond {
 			// Convert to no-op
-			first = no_op
+			code = no_op
 		}
 	}
 
-	imms := first.Immediates
+	imms := code.Immediates
 
-	switch first.Class() {
+	switch code.Class() {
 	case OP_ALU:
-		op, dst, arg := first.AluDecode()
+		op, dst, arg := code.AluDecode()
 		var val uint32
 		val, imms, err = cpu.getValue(arg, imms)
 		if err != nil {
@@ -384,7 +416,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 		set_target(output)
 		result = uint64(output)
 	case OP_COND:
-		op, a_ir, b_ir := first.CondDecode()
+		op, a_ir, b_ir := code.CondDecode()
 		var a_u uint32
 		var b_u uint32
 		a_u, imms, err = cpu.getValue(a_ir, imms)
@@ -414,7 +446,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			return
 		}
 	case OP_CAPP:
-		op, match, mask := first.CappDecode()
+		op, match, mask := code.CappDecode()
 		var val uint32
 		var msk uint32
 		val, imms, err = cpu.getValue(match, imms)
@@ -466,7 +498,7 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 			return
 		}
 	case OP_IO:
-		op, dst, ir_value := first.IoDecode()
+		op, dst, ir_value := code.IoDecode()
 		var value uint32
 		var set_await func(value uint32)
 		if op == IO_OP_AWAIT {
@@ -540,6 +572,8 @@ func (cpu *Cpu) Execute(first Code) (err error) {
 	return
 }
 
+// getValue gets the value specified by the CodeIR, based on CPU
+// state or value of the immediates that followed the opcode.
 func (cp *Cpu) getValue(src CodeIR, imms_in []uint16) (value uint32, imms []uint16, err error) {
 	imms = imms_in
 
@@ -589,6 +623,7 @@ func (cp *Cpu) getValue(src CodeIR, imms_in []uint16) (value uint32, imms []uint
 	return
 }
 
+// doAlu performs the requested ALU action, and returns the output value.
 func (cp *Cpu) doAlu(op CodeAluOp, input uint32, value uint32) (output uint32) {
 	switch op {
 	case ALU_OP_SET: // set

@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// CodeCond is a condition code.
 type CodeCond int
 
 //go:generate go tool stringer -linecomment -type=CodeCond
@@ -14,6 +15,7 @@ const (
 	COND_NEVER  = CodeCond(3) // ~
 )
 
+// CodeClass is the type of opcode class.
 type CodeClass int
 
 //go:generate go tool stringer -linecomment -type=CodeClass
@@ -24,6 +26,7 @@ const (
 	OP_IO   = CodeClass(3) // io
 )
 
+// CodeAluOp is an ALU operation type.
 type CodeAluOp int
 
 //go:generate go tool stringer -linecomment -type=CodeAluOp
@@ -38,6 +41,7 @@ const (
 	ALU_OP_SUB = CodeAluOp(7) // sub
 )
 
+// CodeCondOp is a conditional operation type.
 type CodeCondOp int
 
 //go:generate go tool stringer -linecomment -type=CodeCondOp
@@ -48,6 +52,7 @@ const (
 	COND_OP_LE = CodeCondOp(3) // le
 )
 
+// CodeCappOp is a CAPP operation type.
 type CodeCappOp int
 
 //go:generate go tool stringer -linecomment -type=CodeCappOp
@@ -62,6 +67,7 @@ const (
 	CAPP_OP_WRITE_LIST  = CodeCappOp(7) // wlist
 )
 
+// CodeIoOp is an IO operation type.
 type CodeIoOp int
 
 //go:generate go tool stringer -linecomment -type=CodeIoOp
@@ -72,6 +78,7 @@ const (
 	IO_OP_ALERT = CodeIoOp(3) // alert
 )
 
+// CodeIR is an Immediate-or-Register decode type.
 type CodeIR int
 
 //go:generate go tool stringer -linecomment -type=CodeIR
@@ -98,6 +105,7 @@ func (ir CodeIR) Writable() bool {
 	return ir < IR_REG_MATCH
 }
 
+// CodeChannel is an IO channel index type.
 type CodeChannel int
 
 //go:generate go tool stringer -linecomment -type=CodeChannel
@@ -109,6 +117,7 @@ const (
 	CHANNEL_ID_MONITOR = CodeChannel(7) // monitor
 )
 
+// Opcode locates instruction codes in the assembly listing.
 type Opcode struct {
 	LineNo    int
 	Ip        int
@@ -117,11 +126,13 @@ type Opcode struct {
 	LinkLabel string
 }
 
+// Code is an instruction word, followed by any needed immediates.
 type Code struct {
 	Word       uint16
 	Immediates []uint16
 }
 
+// makeCond makes an instruction conditional.
 func makeCond(cond CodeCond, op uint16, imms ...uint16) Code {
 	return Code{
 		Word:       (uint16(cond) << 14) | op,
@@ -129,36 +140,44 @@ func makeCond(cond CodeCond, op uint16, imms ...uint16) Code {
 	}
 }
 
+// MakeCodeExit makes an end-of-program instruction.
 func MakeCodeExit(cond CodeCond) Code {
 	return MakeCodeAlu(cond, ALU_OP_SET, IR_IP, IR_CONST_FFFFFFFF)
 }
 
+// MakeCodeCapp makes a CAPP operation instruction.
 func MakeCodeCapp(cond CodeCond, op CodeCappOp, src_v, src_m CodeIR, imms ...uint16) Code {
 	return makeCond(cond, (uint16(OP_CAPP)<<11)|(uint16(op)<<8)|(uint16(src_v)<<4)|(uint16(src_m)<<0), imms...)
 }
 
+// MakeCodeIo makes an IO operation instruction.
 func MakeCodeIo(cond CodeCond, op CodeIoOp, channel CodeChannel, arg CodeIR, imms ...uint16) Code {
 	return makeCond(cond, (uint16(OP_IO)<<11)|(uint16(op)<<8)|(uint16(channel)<<4)|(uint16(arg)<<0), imms...)
 }
 
+// MakeCodeAlu makes an ALU operation instruction.
 func MakeCodeAlu(cond CodeCond, op CodeAluOp, target, arg CodeIR, imms ...uint16) Code {
 	return makeCond(cond, (uint16(OP_ALU)<<11)|(uint16(op)<<8)|((uint16(target)&7)<<4)|(uint16(arg)<<0), imms...)
 }
 
+// MakeCodeCond makes a condition operation instruction.
 func MakeCodeCond(cond CodeCond, op CodeCondOp, arg_a, arg_b CodeIR, imms ...uint16) Code {
 	return makeCond(cond, (uint16(OP_COND)<<11)|(uint16(op)<<8)|(uint16(arg_a)<<4)|(uint16(arg_b)<<0), imms...)
 }
 
+// Cond returns the condition code of this instruction.
 func (code Code) Cond() CodeCond {
 	word := uint16(code.Word)
 	return CodeCond((word >> 14) & 0x3)
 }
 
+// Class returns the operation class of this instruction.
 func (code Code) Class() CodeClass {
 	word := uint16(code.Word)
 	return CodeClass((word >> 11) & 0x3)
 }
 
+// AluDecode returns the ALU operation arguments of this instruction.
 func (code Code) AluDecode() (op CodeAluOp, target, arg CodeIR) {
 	word := uint16(code.Word)
 	op = CodeAluOp((word >> 8) & 0x7)
@@ -167,6 +186,7 @@ func (code Code) AluDecode() (op CodeAluOp, target, arg CodeIR) {
 	return
 }
 
+// CondDecode returns the condition operation arguments of this instruction.
 func (code Code) CondDecode() (op CodeCondOp, arg1, arg2 CodeIR) {
 	word := uint16(code.Word)
 	op = CodeCondOp((word >> 8) & 0x7)
@@ -175,6 +195,7 @@ func (code Code) CondDecode() (op CodeCondOp, arg1, arg2 CodeIR) {
 	return
 }
 
+// CappDecode returns the CAPP operation arguments of this instruction.
 func (code Code) CappDecode() (op CodeCappOp, match, mask CodeIR) {
 	word := uint16(code.Word)
 	op = CodeCappOp((word >> 8) & 0x7)
@@ -183,6 +204,7 @@ func (code Code) CappDecode() (op CodeCappOp, match, mask CodeIR) {
 	return
 }
 
+// IoDecode returns the IO operation arguments of this instruction.
 func (code Code) IoDecode() (op CodeIoOp, channel CodeChannel, arg CodeIR) {
 	word := uint16(code.Word)
 	op = CodeIoOp((word >> 8) & 0x7)
@@ -191,6 +213,7 @@ func (code Code) IoDecode() (op CodeIoOp, channel CodeChannel, arg CodeIR) {
 	return
 }
 
+// ImmediateNeed returns the number of 16-bit immediates expected after this instruction.
 func (code Code) ImmediateNeed() int {
 	class := code.Class()
 
@@ -225,6 +248,7 @@ func (code Code) ImmediateNeed() int {
 	return need
 }
 
+// String returns the textual version of this instruction.
 func (code Code) String() (out string) {
 	cond := code.Cond()
 	class := code.Class()

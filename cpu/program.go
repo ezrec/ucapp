@@ -4,15 +4,18 @@ import (
 	"iter"
 )
 
+// Program is a list of opcodes.
 type Program struct {
 	Opcodes []Opcode
 }
 
+// Debug information.
 type Debug struct {
-	*Opcode
-	Index int
+	*Opcode     // Opcode for the index.
+	Index   int // Index into the Program's Opcodes array.
 }
 
+// Debug returns the information about the program listing at the IP.
 func (prog *Program) Debug(ip uint16) (dbg Debug) {
 	for n, op := range prog.Opcodes {
 		if ip >= uint16(op.Ip) && ip < uint16(op.Ip)+uint16(len(op.Codes)) {
@@ -28,6 +31,7 @@ func (prog *Program) Debug(ip uint16) (dbg Debug) {
 	return
 }
 
+// Binary returns the instruction list version of the program.
 func (prog *Program) Binary() (bins []uint32) {
 	for ip, code := range prog.Codes() {
 		var data []uint32
@@ -41,6 +45,7 @@ func (prog *Program) Binary() (bins []uint32) {
 	return
 }
 
+// Codes returns an interator over all of IPs and instruction codes of the program.
 func (prog *Program) Codes() iter.Seq2[uint16, Code] {
 	return func(yield func(ip uint16, code Code) bool) {
 		for _, op := range prog.Opcodes {

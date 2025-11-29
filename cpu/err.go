@@ -50,12 +50,14 @@ var (
 	ErrInstructionInvalid = errors.New(f("instruction invalid"))
 )
 
+// ErrLabelMissing indicates a missing jump label.
 type ErrLabelMissing string
 
 func (el ErrLabelMissing) Error() string {
 	return f("label %v missing", string(el))
 }
 
+// ErrOpcode indicates an invalid opcode.
 type ErrOpcode Code
 
 func (eo ErrOpcode) Error() string {
@@ -67,6 +69,7 @@ func (eo ErrOpcode) Is(err error) (ok bool) {
 	return
 }
 
+// ErrSyntax locates an error in the assembly listing.
 type ErrSyntax struct {
 	LineNo int
 	Line   string
@@ -74,31 +77,35 @@ type ErrSyntax struct {
 }
 
 func (err ErrSyntax) Error() string {
-	return f("line %d '%v' %v", err.LineNo, err.Line, err.Err)
+	return f("line %d \"%v\": %v", err.LineNo, err.Line, err.Err)
 }
 
 func (err ErrSyntax) Unwrap() error {
 	return err.Err
 }
 
+// ErrParseCharacter indicates a character ('x') parsing failure.
+type ErrParseCharacter string
+
+func (err ErrParseCharacter) Error() string {
+	return f("'%v' is not a single byte character", string(err))
+}
+
+// ErrParseNumber indicates a numeric persing failure.
 type ErrParseNumber string
 
 func (err ErrParseNumber) Error() string {
-	return f("'%v' is not a number", string(err))
+	return f("%v is not a number", string(err))
 }
 
-type ErrParseValue string
-
-func (err ErrParseValue) Error() string {
-	return f("'%v' is not a value or register", string(err))
-}
-
+// ErrParseExpression indicates a $(..) expression parsing failure.
 type ErrParseExpression string
 
 func (err ErrParseExpression) Error() string {
 	return f("$(%v) is not a valid expression", string(err))
 }
 
+// ErrMacro locates a macro error in the assembly listing.
 type ErrMacro struct {
 	Macro string
 	Line  int
