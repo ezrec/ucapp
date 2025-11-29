@@ -17,12 +17,14 @@ import (
 	"go.starlark.net/syntax"
 )
 
+// Macro definition
 type Macro struct {
-	LineNo int
-	Args   []string
-	Lines  []string
+	LineNo int      // Line number of the macro definition.
+	Args   []string // Arguments for the macro.
+	Lines  []string // Lines of macro text to expand.
 }
 
+// Predefined system equates
 var sysEquate = map[string]string{
 	"LINENO":     "0",
 	"ARENA_MASK": fmt.Sprintf("%#v", ARENA_MASK),
@@ -30,17 +32,18 @@ var sysEquate = map[string]string{
 	"ARENA_FREE": fmt.Sprintf("%#v", ARENA_FREE),
 	"ARENA_TMP":  fmt.Sprintf("%#v", ARENA_TMP),
 	"ARENA_CODE": fmt.Sprintf("%#v", ARENA_CODE),
-	"CAPP_SIZE":  fmt.Sprintf("%#v", CAPP_SIZE),
 }
 
+// Assembler is a single pass macro assembler for the μCAPP system.
 type Assembler struct {
-	Verbose bool
-	Opcode  []Opcode
-	Label   map[string]int
-	Equate  map[string]string
-	Macro   map[string](*Macro)
+	Verbose bool                // If set, verbosely logs the assembler actions.
+	Opcode  []Opcode            // List of generated opcodes.
+	Label   map[string]int      // Map of jump labels to opcode indexes.
+	Equate  map[string]string   // Map of equates.
+	Macro   map[string](*Macro) // Map of macros.
 }
 
+// Define a new equate, or redefine an existing equate.
 func (asm *Assembler) Define(equ string, value string) {
 	if asm.Equate == nil {
 		asm.Equate = map[string]string{equ: value}
@@ -49,6 +52,7 @@ func (asm *Assembler) Define(equ string, value string) {
 	}
 }
 
+// dstMap is a map of register names to IR codes.
 var dstMap = map[string]CodeIR{
 	"r0":    IR_REG_R0,
 	"r1":    IR_REG_R1,
@@ -60,11 +64,18 @@ var dstMap = map[string]CodeIR{
 	"stack": IR_STACK,
 }
 
+// valueOf returns the value of a simple word.
 func (asm *Assembler) valueOf(word string) (value uint32, err error) {
 	invert := false
 	if word[0] == '~' {
 		invert = true
 		word = word[1:]
+	}
+	if word[0] == '\'' {
+		// Character quotes should have been expanded into
+		// values in parseLine()
+		err = ErrParseCharacter(word[1 : len(word)-1])
+		return
 	}
 	v64, err := strconv.ParseInt(word, 0, 33)
 	if err != nil {
@@ -103,7 +114,20 @@ var irMap = map[string]CodeIR{
 	"count": IR_REG_COUNT,
 }
 
-func (asm *Assembler) irOrImm(word string) (ir CodeIR, imms []uint16, err error) {
+// irOrImm determines if a value can be encoded as an CodeIR, or a set of immediates.
+func (asm *Assembler) irOrImm(words ...string) (ir CodeIR, imms []uint16, err error) {
+	if len(words) > 1 {
+		err = ErrOpcodeExtraArgs
+		return
+	}
+
+	if len(words) == 0 {
+		ir = IR_CONST_FFFFFFFF
+		return
+	}
+
+	word := words[0]
+
 	ir, is_ir := irMap[word]
 	if is_ir {
 		// known value source - we're done!
@@ -112,7 +136,6 @@ func (asm *Assembler) irOrImm(word string) (ir CodeIR, imms []uint16, err error)
 
 	value, err := asm.valueOf(word)
 	if err != nil {
-		err = ErrParseValue(word)
 		return
 	}
 
@@ -180,21 +203,24 @@ func (asm *Assembler) parseLine(line string, lineno int) (words []string, err er
 
 	// Do 'x' evaluations
 	re := regexp.MustCompile(`'\\?[^']'`)
-	line = re.ReplaceAllStringFunc(line, func(str string) string {
-		str = str[1 : len(str)-1]
-		switch str {
-		case "\\\\":
-			str = "\\"
-		case "\\n":
-			str = "\n"
-		case "\\r":
-			str = "\r"
-		case "\\e":
-			str = "\033"
-		default:
-			if str[0] == '\\' {
-				return str
+	line = re.ReplaceAllStringFunc(line, func(word string) string {
+		str := word[1 : len(word)-1]
+		if str[0] == '\\' {
+			str = str[1:]
+			switch str {
+			case "\\":
+				str = "\\"
+			case "n":
+				str = "\n"
+			case "r":
+				str = "\r"
+			case "e":
+				str = "\033"
+			default:
+				return word
 			}
+		} else if len(str) != 1 {
+			return word
 		}
 		return fmt.Sprintf("%v", str[0])
 	})
@@ -307,7 +333,7 @@ func (asm *Assembler) parseLine(line string, lineno int) (words []string, err er
 	return
 }
 
-// getIp gets the current Ip
+// currentIp gets the current Ip
 func (asm *Assembler) currentIp() int {
 	if len(asm.Opcode) == 0 {
 		return 0
@@ -318,7 +344,7 @@ func (asm *Assembler) currentIp() int {
 	return last.Ip + len(last.Codes)
 }
 
-// Parse into opcodes.
+// Parse an input stream into opcodes.
 func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 
 	scanner := bufio.NewScanner(input)
@@ -442,6 +468,7 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 	return
 }
 
+// aluMap maps ALU opcode names.
 var aluMap = map[string]CodeAluOp{
 	"set": ALU_OP_SET,
 	"xor": ALU_OP_XOR,
@@ -453,6 +480,7 @@ var aluMap = map[string]CodeAluOp{
 	"sub": ALU_OP_SUB,
 }
 
+// channelMap maps IO channel names.
 var channelMap = map[string]CodeChannel{
 	"temp":    CHANNEL_ID_TEMP,
 	"depot":   CHANNEL_ID_DEPOT,
@@ -461,6 +489,7 @@ var channelMap = map[string]CodeChannel{
 	"monitor": CHANNEL_ID_MONITOR,
 }
 
+// getChannel gets the channel code for a word.
 func (asm *Assembler) getChannel(word string) (channel CodeChannel, err error) {
 	channel, ok := channelMap[word]
 	if ok {
@@ -468,7 +497,6 @@ func (asm *Assembler) getChannel(word string) (channel CodeChannel, err error) {
 	}
 	value, err := asm.valueOf(word)
 	if err != nil {
-		err = ErrParseValue(word)
 		return
 	}
 
@@ -482,25 +510,8 @@ func (asm *Assembler) getChannel(word string) (channel CodeChannel, err error) {
 	return
 }
 
-func (asm *Assembler) getMask(words []string) (imms []uint16, mask CodeIR, err error) {
-	if len(words) > 1 {
-		err = ErrOpcodeExtraArgs
-		return
-	}
-
-	if len(words) == 0 {
-		mask = IR_CONST_FFFFFFFF
-	} else {
-		mask, imms, err = asm.irOrImm(words[0])
-		if err != nil {
-			return
-		}
-	}
-
-	return
-}
-
-func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (imms []uint16, match, mask CodeIR, err error) {
+// getMatchMask returns the match & mask encoding
+func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (match, mask CodeIR, imms []uint16, err error) {
 	if len(words) > 2 {
 		err = ErrOpcodeExtraArgs
 		return
@@ -530,6 +541,7 @@ func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (imms []uint16
 	return
 }
 
+// parseWords evaluates the words in a line of assembly text.
 func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	var codes []Code
 	var label string
@@ -628,7 +640,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 			err = ErrOpcodeExtraArgs
 			return
 		}
-		imms, a, b, err = asm.getMatchMask(cond, words[2:])
+		a, b, imms, err = asm.getMatchMask(cond, words[2:])
 		switch words[1] {
 		case "eq?":
 			op = COND_OP_EQ
@@ -680,7 +692,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 				return
 			}
 			var match, mask CodeIR
-			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
+			match, mask, imms, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
@@ -691,7 +703,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 				err = ErrOpcodeValueMissing
 				return
 			}
-			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
+			match, mask, imms, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
@@ -702,7 +714,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 				err = ErrOpcodeValueMissing
 				return
 			}
-			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
+			match, mask, imms, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
@@ -713,7 +725,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 				err = ErrOpcodeValueMissing
 				return
 			}
-			imms, match, mask, err = asm.getMatchMask(cond, words[2:])
+			match, mask, imms, err = asm.getMatchMask(cond, words[2:])
 			if err != nil {
 				return
 			}
@@ -734,7 +746,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		}
 		var arg CodeIR
 		var imms []uint16
-		imms, arg, err = asm.getMask(words[3:])
+		arg, imms, err = asm.irOrImm(words[3:]...)
 		if err != nil {
 			return
 		}
@@ -777,7 +789,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		}
 		var imms []uint16
 		var arg CodeIR
-		imms, arg, err = asm.getMask(words[1:])
+		arg, imms, err = asm.irOrImm(words[1:]...)
 		if err != nil {
 			return
 		}
@@ -830,7 +842,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		}
 		var arg CodeIR
 		var imms []uint16
-		imms, arg, err = asm.getMask(words[3:])
+		arg, imms, err = asm.irOrImm(words[3:]...)
 		if err != nil {
 			return
 		}
