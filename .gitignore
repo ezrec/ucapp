@@ -8,3 +8,4 @@ testdata
 tags
 *_string.go
 *.out
+depot/
