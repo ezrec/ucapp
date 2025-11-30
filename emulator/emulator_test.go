@@ -14,6 +14,7 @@ func TestEmulator(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
 
 	assert.False(emu.Verbose)
 	assert.NotNil(emu.Cpu.Capp)
@@ -27,7 +28,7 @@ func doRunSingle(emu *Emulator, program []string, input []byte, t *testing.T) (o
 	assert.NoError(err)
 	emu.Program = prog
 
-	err = emu.Reset()
+	err = emu.Reset(cpu.CHANNEL_ID_MONITOR)
 	assert.NoError(err)
 
 	emu.Tape.Input = bytes.NewReader(input)
@@ -67,7 +68,7 @@ func doRunBranch(emu *Emulator, program []string, input []byte, t *testing.T) (o
 	assert.NoError(err)
 	emu.Program = prog
 
-	err = emu.Reset()
+	err = emu.Reset(cpu.CHANNEL_ID_MONITOR)
 	assert.NoError(err)
 
 	emu.Tape.Input = bytes.NewReader(input)
@@ -96,6 +97,7 @@ func TestEmulatorRegisters(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
 
 	program := []string{
 		"list of ARENA_FREE ARENA_MASK",
@@ -131,6 +133,8 @@ func TestEmulatorAlu(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
+
 	program := []string{
 		"write r1 0x10", // r0
 		"alu add r1 1",
@@ -163,6 +167,8 @@ func TestEmulatorEqu(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
+
 	program := []string{
 		".equ CONST_10 0x10",
 		"write r0 CONST_10",               // r0
@@ -184,6 +190,8 @@ func TestEmulatorMacro(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
+
 	program := []string{
 		".macro SETADD rn a b",
 		"write rn a",
@@ -208,6 +216,8 @@ func TestEmulatorLabel(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
+
 	program := []string{
 		"jump R0",
 		"AddOneToR0:",
@@ -238,6 +248,8 @@ func TestEmulatorSystemMacro(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
+
 	program := []string{
 		"list of ARENA_FREE ARENA_MASK",
 		"list all",
@@ -273,6 +285,8 @@ func TestEmulatorTemp(t *testing.T) {
 	assert := assert.New(t)
 
 	emu := NewEmulator()
+	defer emu.Close()
+
 	program := []string{
 		"list of ARENA_FREE ARENA_MASK",
 		"list all",

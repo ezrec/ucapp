@@ -9,13 +9,13 @@ type Program struct {
 	Opcodes []Opcode
 }
 
-// Debug information.
+// Debug contains debugging information for a program instruction pointer.
 type Debug struct {
 	*Opcode     // Opcode for the index.
 	Index   int // Index into the Program's Opcodes array.
 }
 
-// Debug returns the information about the program listing at the IP.
+// Debug returns debugging information for the instruction at the given IP address.
 func (prog *Program) Debug(ip uint16) (dbg Debug) {
 	for n, op := range prog.Opcodes {
 		if ip >= uint16(op.Ip) && ip < uint16(op.Ip)+uint16(len(op.Codes)) {
@@ -31,7 +31,7 @@ func (prog *Program) Debug(ip uint16) (dbg Debug) {
 	return
 }
 
-// Binary returns the instruction list version of the program.
+// Binary returns the program as a list of 32-bit CAPP memory words.
 func (prog *Program) Binary() (bins []uint32) {
 	for ip, code := range prog.Codes() {
 		var data []uint32
@@ -45,7 +45,7 @@ func (prog *Program) Binary() (bins []uint32) {
 	return
 }
 
-// Codes returns an iterator over all of IPs and instruction codes of the program.
+// Codes returns an iterator over all instruction pointer addresses and their codes.
 func (prog *Program) Codes() iter.Seq2[uint16, Code] {
 	return func(yield func(ip uint16, code Code) bool) {
 		for _, op := range prog.Opcodes {

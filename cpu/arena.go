@@ -1,5 +1,8 @@
 package cpu
 
+// Memory arena bit patterns for the CAPP memory space.
+// These constants define the upper bits used to partition CAPP memory
+// into logical regions for different purposes.
 const (
 	ARENA_MASK = 0xc_000_0000 // Mask of the arena CAPP data bits.
 	ARENA_IO   = 0x0_000_0000 // Input/Output.

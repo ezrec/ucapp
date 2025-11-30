@@ -4,7 +4,6 @@ package emulator
 
 import (
 	"errors"
-	"log"
 
 	"github.com/ezrec/ucapp/cpu"
 	"github.com/ezrec/ucapp/io"
@@ -26,6 +25,8 @@ type Emulator struct {
 	Tape      io.Tape      // Tape IO channel.
 	Depot     io.Depot     // Depot (Drum and Ring) IO channel.
 	Rom       io.Rom       // ROM IO channel.
+
+	TrapRequest chan uint32
 }
 
 // NewEmulator creates a new emulator.
@@ -42,21 +43,29 @@ func NewEmulator() (emu *Emulator) {
 	emu.Cpu.SetChannel(cpu.CHANNEL_ID_TAPE, &emu.Tape)
 	emu.Cpu.SetChannel(cpu.CHANNEL_ID_DEPOT, &emu.Depot)
 
+	// Map the trap channel
+	_, emu.TrapRequest, _ = emu.Cpu.GetChannel(cpu.CHANNEL_ID_MONITOR)
+	emu.Rom.Alert(io.ROM_OP_TRAP, emu.TrapRequest)
+
+	return
+}
+
+// Close the emulator
+func (emu *Emulator) Close() (err error) {
+	emu.Cpu.Close()
+
 	return
 }
 
 // Reset the assembler state
-func (emu *Emulator) Reset() (err error) {
+func (emu *Emulator) Reset(boot cpu.CodeChannel) (err error) {
 	cp := emu.Cpu.Capp
 
 	emu.Cpu.Verbose = false
 
-	if emu.Verbose {
-		log.Printf("reset")
-	}
 	emu.Rom.Data = emu.Program.Binary()
 
-	err = emu.Cpu.Reset()
+	err = emu.Cpu.Reset(boot)
 	if err != nil {
 		return
 	}

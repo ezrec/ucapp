@@ -10,14 +10,23 @@ import (
 	"github.com/ezrec/ucapp/io"
 )
 
+// Channel is an I/O channel interface.
 type Channel io.Channel
 
+// Instruction Pointer execution mode constants.
+// The upper 2 bits of the IP determine the source for instruction fetch.
 const (
 	IP_MODE_CAPP  = uint32(0b00 << 30) // Execute from CAPP
 	IP_MODE_STACK = uint32(0b01 << 30) // Execute from stack
 	IP_MODE_REG   = uint32(0b10 << 30) // Execute from register bank
 	IP_MODE_MASK  = uint32(0b11 << 30) // Mask of execute modes.
 )
+
+// CpuChannel represents an I/O channel attached to the CPU with its response channel.
+type CpuChannel struct {
+	Channel  Channel
+	Response chan uint32
+}
 
 // Cpu is the simulation context for the control CPU attached to the CAPP
 type Cpu struct {
@@ -35,13 +44,24 @@ type Cpu struct {
 	Power int // Power (bits flipped) counter.
 	Ticks int // CPU ticks counter.
 
-	channel [8]Channel // IO channels.
+	channel [8](*CpuChannel) // IO channels.
 }
 
-// Create a new CPU with a specifically sized CAPP.
+// NewCpu creates a new CPU with a specifically sized CAPP.
 func NewCpu(count uint) (cpu *Cpu) {
 	cpu = &Cpu{
 		Capp: capp.NewCapp(count),
+	}
+
+	return
+}
+
+// Close closes all I/O channels associated with the CPU.
+func (cpu *Cpu) Close() (err error) {
+	for _, ch := range cpu.channel {
+		if ch != nil {
+			close(ch.Response)
+		}
 	}
 
 	return
@@ -103,7 +123,11 @@ func (cpu *Cpu) String() (text string) {
 // - Resets all IO channels.
 // - Installs trampoline to boot from CAPP in register bank.
 // - Sets CPU execution mode to boot-from-register bank.
-func (cpu *Cpu) Reset() (err error) {
+func (cpu *Cpu) Reset(boot CodeChannel) (err error) {
+	if cpu.Verbose {
+		log.Printf("cpu: reset")
+	}
+
 	clear(cpu.Register[:])
 	cpu.Stack.Reset()
 	cpu.Capp.Reset()
@@ -114,13 +138,13 @@ func (cpu *Cpu) Reset() (err error) {
 		if channel == nil {
 			continue
 		}
-		channel.Reset()
+		channel.Channel.Rewind()
 	}
 
 	// r0: .list.of.immz.immz        ; Select all of the CAPP
 	// r1: .list.all.-.-             ; Tag all items
 	// r2: .list.write.immnz   ; Replace all values with 0xFFFFFFFF
-	// r3: .io.fetch.rom.immnz    ; Load boot ROM into CAPP
+	// r3: .io.fetch.rom.immnz    ; Load boot channel into CAPP
 	// r4: .list.not.-.-             ; Now, only the program is tagged
 	// r5: .alu.set.ip.immz      ; Set IP to 0x00000000 (exec from CAPP)
 
@@ -128,7 +152,7 @@ func (cpu *Cpu) Reset() (err error) {
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_SET_OF, IR_CONST_0, IR_CONST_0),
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_LIST_ALL, IR_CONST_0, IR_CONST_0),
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_WRITE_LIST, IR_CONST_FFFFFFFF, IR_CONST_FFFFFFFF),
-		MakeCodeIo(COND_ALWAYS, IO_OP_FETCH, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF),
+		MakeCodeIo(COND_ALWAYS, IO_OP_FETCH, boot, IR_CONST_FFFFFFFF),
 		MakeCodeCapp(COND_ALWAYS, CAPP_OP_LIST_NOT, IR_CONST_0, IR_CONST_0),
 		MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_CONST_0),
 	}
@@ -143,23 +167,38 @@ func (cpu *Cpu) Reset() (err error) {
 	// Set IP to run from registers
 	cpu.Ip = IP_MODE_REG
 
+	if cpu.Verbose {
+		log.Printf("cpu: boot from channel %v", boot)
+	}
+
 	return
 }
 
 // SetChannel sets a channel index to a channel simulation model.
 func (cpu *Cpu) SetChannel(index CodeChannel, channel Channel) {
-	cpu.channel[int(index)] = channel
+	if channel != nil {
+		cpu.channel[int(index)] = &CpuChannel{
+			Channel:  channel,
+			Response: make(chan uint32, 8),
+		}
+	} else {
+		if cpu.channel[int(index)] != nil {
+			close(cpu.channel[int(index)].Response)
+		}
+		cpu.channel[int(index)] = nil
+	}
 }
 
 // GetChannel gets the channel simulation model by index.
-func (cpu *Cpu) GetChannel(ch CodeChannel) (channel Channel, err error) {
+func (cpu *Cpu) GetChannel(ch CodeChannel) (channel Channel, response chan uint32, err error) {
 	index := int(ch)
 	if index >= len(cpu.channel) || cpu.channel[index] == nil {
 		err = ErrChannelInvalid
 		return
 	}
 
-	channel = cpu.channel[index]
+	channel = cpu.channel[index].Channel
+	response = cpu.channel[index].Response
 	return
 }
 
@@ -239,7 +278,7 @@ func (cpu *Cpu) listOutput(out Channel, mask uint32) (err error) {
 	return
 }
 
-// FetchCode collects the next code to execute, based on the IP.
+// FetchCode fetches the next instruction to execute based on the IP mode and address.
 func (cpu *Cpu) FetchCode() (code Code, err error) {
 	if cpu.Ip == 0xffffffff {
 		err = ErrIpEmpty
@@ -295,7 +334,7 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 	return
 }
 
-// Tick execute a single CPU tick.
+// Tick executes a single CPU instruction cycle.
 func (cpu *Cpu) Tick() (err error) {
 	// Set CAPP verbosity
 	cpu.Capp.Verbose = cpu.Verbose
@@ -311,24 +350,26 @@ func (cpu *Cpu) Tick() (err error) {
 	}
 
 	// Check for trap on PROGRAM channel.
-	var prog Channel
-	prog, err = cpu.GetChannel(CHANNEL_ID_MONITOR)
-	if err == ErrChannelInvalid {
-		// no debug channel
-		err = nil
-	} else {
-		if err == nil {
-			_, ok := prog.GetAlert()
-			if ok {
+	_, trap, err := cpu.GetChannel(CHANNEL_ID_MONITOR)
+	if err == nil {
+		select {
+		case _, ok := <-trap:
+			if !ok {
+				err = ErrChannelInvalid
+			} else {
 				err = ErrIpTrap
 			}
+		default:
+			err = nil
 		}
+	} else {
+		err = nil
 	}
 
 	return
 }
 
-// Execute performs the actions of a CPU code.
+// Execute executes a single decoded instruction.
 func (cpu *Cpu) Execute(code Code) (err error) {
 	defer func() {
 		if err != nil {
@@ -526,7 +567,8 @@ func (cpu *Cpu) Execute(code Code) (err error) {
 			}
 		}
 		var channel Channel
-		channel, err = cpu.GetChannel(dst)
+		var response chan uint32
+		channel, response, err = cpu.GetChannel(dst)
 		if err != nil {
 			err = errors.Join(ErrOpcodeIo, err)
 			return
@@ -537,15 +579,19 @@ func (cpu *Cpu) Execute(code Code) (err error) {
 		case IO_OP_STORE:
 			err = cpu.listOutput(channel, value)
 		case IO_OP_ALERT:
-			channel.Alert(value)
+			channel.Alert(value, response)
 		case IO_OP_AWAIT:
-			recv, ok := channel.Await()
-			if !ok {
+			select {
+			case recv, ok := <-response:
+				if !ok {
+					err = ErrChannelInvalid
+				} else {
+					// Update as requested.
+					set_await(recv)
+				}
+			default:
 				// Don't advance to next IP.
 				next_ip = cpu.Ip
-			} else {
-				// Update as requested.
-				set_await(recv)
 			}
 		default:
 			err = errors.Join(ErrOpcodeIo, ErrOpcodeOp)

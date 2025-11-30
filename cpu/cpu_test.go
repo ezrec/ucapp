@@ -3,6 +3,7 @@ package cpu
 import (
 	"bytes"
 	"errors"
+	"iter"
 	"strings"
 	"testing"
 
@@ -11,6 +12,20 @@ import (
 	"github.com/ezrec/ucapp/capp"
 	"github.com/ezrec/ucapp/io"
 )
+
+type dummyIo struct {
+	response chan uint32
+}
+
+func (di *dummyIo) Rewind()                 {}
+func (di *dummyIo) Send(bool) error         { return nil }
+func (di *dummyIo) Receive() iter.Seq[bool] { return func(func(bool) bool) {} }
+func (di *dummyIo) Alert(value uint32, response chan uint32) {
+	di.response = response
+	di.response <- value
+}
+
+var _ io.Channel = &dummyIo{}
 
 func TestCpu_String(t *testing.T) {
 	assert := assert.New(t)
@@ -51,7 +66,7 @@ func TestCpu_Reset(t *testing.T) {
 	tape := &io.Tape{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
-	err := cpu.Reset()
+	err := cpu.Reset(CHANNEL_ID_MONITOR)
 	assert.NoError(err)
 
 	assert.Equal(uint32(IP_MODE_REG), cpu.Ip)
@@ -68,23 +83,26 @@ func TestCpu_GetChannel(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 
-	_, err := cpu.GetChannel(CHANNEL_ID_TAPE)
+	_, _, err := cpu.GetChannel(CHANNEL_ID_TAPE)
 	assert.Error(err)
 	assert.ErrorIs(err, ErrChannelInvalid)
 
 	tape := &io.Tape{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
-	ch, err := cpu.GetChannel(CHANNEL_ID_TAPE)
+	ch, resp, err := cpu.GetChannel(CHANNEL_ID_TAPE)
 	assert.NoError(err)
 	assert.Equal(tape, ch)
+	assert.NotNil(resp)
 }
 
 func TestCpu_FetchCode_CAPP(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -103,6 +121,7 @@ func TestCpu_FetchCode_CAPP_WithImmediates(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -125,6 +144,7 @@ func TestCpu_FetchCode_Stack(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = IP_MODE_STACK
 	cpu.Stack.Push(0x5678)
 
@@ -137,6 +157,7 @@ func TestCpu_FetchCode_Stack_Empty(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = IP_MODE_STACK
 
 	_, err := cpu.FetchCode()
@@ -148,6 +169,7 @@ func TestCpu_FetchCode_Reg(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Register[3] = 0x87654321
 	cpu.Ip = IP_MODE_REG | 3
 
@@ -160,6 +182,7 @@ func TestCpu_FetchCode_Reg_OutOfBounds(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = IP_MODE_REG | 10
 
 	_, err := cpu.FetchCode()
@@ -171,6 +194,7 @@ func TestCpu_FetchCode_InvalidIP(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0xffffffff
 
 	_, err := cpu.FetchCode()
@@ -182,6 +206,7 @@ func TestCpu_FetchCode_CAPP_Empty(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0x0000
 
 	_, err := cpu.FetchCode()
@@ -193,12 +218,13 @@ func TestCpu_Tick_WithTrap(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Register[0] = 0x12345678
 	cpu.Ip = IP_MODE_REG
 
 	monitor := &io.Tape{}
-	monitor.SetAlert(1)
 	cpu.SetChannel(CHANNEL_ID_MONITOR, monitor)
+	cpu.channel[CHANNEL_ID_MONITOR].Response <- 1
 
 	code := MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_REG_R0)
 	cpu.Register[0] = uint32(code.Word)
@@ -212,6 +238,7 @@ func TestCpu_Tick_NoMonitorChannel(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = IP_MODE_REG
 	code := MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_CONST_0)
 	cpu.Register[0] = uint32(code.Word)
@@ -225,6 +252,7 @@ func TestCpu_Execute_CondNever(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	code := MakeCodeAlu(COND_NEVER, ALU_OP_SET, IR_REG_R0, IR_CONST_0)
 
 	err := cpu.Execute(code)
@@ -235,6 +263,7 @@ func TestCpu_Execute_CondTrue_WithCond(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Cond = true
 	cpu.Ip = 0
 	code := MakeCodeAlu(COND_TRUE, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x1234)
@@ -248,6 +277,7 @@ func TestCpu_Execute_CondTrue_NoCond(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Cond = false
 	cpu.Ip = 0
 	cpu.Register[0] = 0xFFFFFFFF
@@ -262,6 +292,7 @@ func TestCpu_Execute_CondFalse_WithCond(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Cond = true
 	cpu.Ip = 0
 	cpu.Register[0] = 0xFFFFFFFF
@@ -276,6 +307,7 @@ func TestCpu_Execute_CondFalse_NoCond(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Cond = false
 	cpu.Ip = 0
 	code := MakeCodeAlu(COND_FALSE, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x1234)
@@ -306,6 +338,7 @@ func TestCpu_Execute_ALU_AllOps(t *testing.T) {
 
 	for _, tt := range tests {
 		cpu := NewCpu(64)
+		defer cpu.Close()
 		cpu.Register[0] = tt.input
 		cpu.Ip = 0
 
@@ -320,6 +353,7 @@ func TestCpu_Execute_ALU_StackFull(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	for i := 0; i < STACK_LIMIT; i++ {
 		cpu.Stack.Push(uint32(i))
@@ -335,6 +369,7 @@ func TestCpu_Execute_ALU_StackPop(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Stack.Push(0x12345678)
 
@@ -351,6 +386,7 @@ func TestCpu_Execute_ALU_SetIP(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0x100
 
 	code := MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_16, 0x200)
@@ -363,6 +399,7 @@ func TestCpu_Execute_ALU_InvalidDst(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	code := Code{Word: uint16((uint16(OP_ALU) << 11) | (uint16(ALU_OP_SET) << 8) | (0x8 << 4))}
@@ -395,6 +432,7 @@ func TestCpu_Execute_COND_AllOps(t *testing.T) {
 
 	for _, tt := range tests {
 		cpu := NewCpu(64)
+		defer cpu.Close()
 		cpu.Ip = 0
 
 		code := MakeCodeCond(COND_ALWAYS, tt.op, IR_IMMEDIATE_32, IR_IMMEDIATE_32,
@@ -410,6 +448,7 @@ func TestCpu_Execute_COND_InvalidOp(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	code := Code{Word: uint16((uint16(OP_COND) << 11) | (0x7 << 8))}
@@ -422,6 +461,7 @@ func TestCpu_Execute_CAPP_SetSwap_Error(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	code := MakeCodeCapp(COND_ALWAYS, CAPP_OP_SET_SWAP, IR_CONST_0, IR_CONST_0)
@@ -434,6 +474,7 @@ func TestCpu_Execute_CAPP_ListAll(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -453,6 +494,7 @@ func TestCpu_Execute_CAPP_ListNot(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -468,6 +510,7 @@ func TestCpu_Execute_CAPP_ListNext(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -487,6 +530,7 @@ func TestCpu_Execute_CAPP_ListOnly(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -508,6 +552,7 @@ func TestCpu_Execute_CAPP_SetOf(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -527,6 +572,7 @@ func TestCpu_Execute_CAPP_WriteFirst(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -542,6 +588,7 @@ func TestCpu_Execute_CAPP_WriteList(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
@@ -557,6 +604,7 @@ func TestCpu_Execute_IO_Fetch(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	tape := &io.Tape{}
@@ -577,6 +625,7 @@ func TestCpu_Execute_IO_Store(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	buf := &bytes.Buffer{}
@@ -600,16 +649,17 @@ func TestCpu_Execute_IO_Alert(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
+	tape := &dummyIo{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
 	code := MakeCodeIo(COND_ALWAYS, IO_OP_ALERT, CHANNEL_ID_TAPE, IR_IMMEDIATE_16, 0x1234)
 	err := cpu.Execute(code)
 	assert.NoError(err)
 
-	alert, ok := tape.GetAlert()
+	alert, ok := <-tape.response
 	assert.True(ok)
 	assert.Equal(uint32(0x1234), alert)
 }
@@ -618,11 +668,12 @@ func TestCpu_Execute_IO_Await_Ready(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
-	tape.SendAwait(0xABCD)
+	tape := &dummyIo{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
+	cpu.channel[CHANNEL_ID_TAPE].Response <- 0xABCD
 
 	code := MakeCodeIo(COND_ALWAYS, IO_OP_AWAIT, CHANNEL_ID_TAPE, IR_REG_R0)
 	err := cpu.Execute(code)
@@ -635,9 +686,10 @@ func TestCpu_Execute_IO_Await_NotReady(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 5
 
-	tape := &io.Tape{}
+	tape := &dummyIo{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
 	code := MakeCodeIo(COND_ALWAYS, IO_OP_AWAIT, CHANNEL_ID_TAPE, IR_REG_R0)
@@ -650,11 +702,12 @@ func TestCpu_Execute_IO_Await_ToStack(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
-	tape.SendAwait(0x5678)
+	tape := &dummyIo{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
+	cpu.channel[CHANNEL_ID_TAPE].Response <- 0x5678
 
 	code := MakeCodeIo(COND_ALWAYS, IO_OP_AWAIT, CHANNEL_ID_TAPE, IR_STACK)
 	err := cpu.Execute(code)
@@ -669,11 +722,12 @@ func TestCpu_Execute_IO_Await_ToIP(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
-	tape.SendAwait(0x100)
+	tape := &dummyIo{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
+	cpu.channel[CHANNEL_ID_TAPE].Response <- 0x100
 
 	code := MakeCodeIo(COND_ALWAYS, IO_OP_AWAIT, CHANNEL_ID_TAPE, IR_IP)
 	err := cpu.Execute(code)
@@ -685,6 +739,7 @@ func TestCpu_Execute_IO_Await_InvalidTarget(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	tape := &io.Tape{}
@@ -700,6 +755,7 @@ func TestCpu_Execute_IO_InvalidChannel(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	code := MakeCodeIo(COND_ALWAYS, IO_OP_ALERT, CHANNEL_ID_TAPE, IR_CONST_0)
@@ -712,6 +768,7 @@ func TestCpu_Execute_IO_InvalidOp(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	tape := &io.Tape{}
@@ -727,6 +784,7 @@ func TestCpu_Execute_ExtraImmediates(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 0
 
 	code := MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_CONST_0, 0x1234)
@@ -739,6 +797,7 @@ func TestCpu_getValue_AllIR(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = 100
 	cpu.Register[0] = 0x11111111
 	cpu.Register[1] = 0x22222222
@@ -786,6 +845,7 @@ func TestCpu_getValue_Immediate16(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	val, _, err := cpu.getValue(IR_IMMEDIATE_16, []uint16{0x1234, 0x5678})
 	assert.NoError(err)
 	assert.Equal(uint32(0x1234), val)
@@ -795,6 +855,7 @@ func TestCpu_getValue_Immediate32(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	val, _, err := cpu.getValue(IR_IMMEDIATE_32, []uint16{0x1234, 0x5678})
 	assert.NoError(err)
 	assert.Equal(uint32(0x12345678), val)
@@ -804,6 +865,7 @@ func TestCpu_getValue_StackEmpty(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	_, _, err := cpu.getValue(IR_STACK, nil)
 	assert.Error(err)
 	assert.ErrorIs(err, ErrStackEmpty)
@@ -813,6 +875,7 @@ func TestCpu_getValue_Immediate16_Missing(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	_, _, err := cpu.getValue(IR_IMMEDIATE_16, nil)
 	assert.Error(err)
 	assert.ErrorIs(err, ErrOpcodeImm)
@@ -822,6 +885,7 @@ func TestCpu_getValue_Immediate32_Missing(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	_, _, err := cpu.getValue(IR_IMMEDIATE_32, []uint16{0x1234})
 	assert.Error(err)
 	assert.ErrorIs(err, ErrOpcodeImm)
@@ -831,6 +895,7 @@ func TestCpu_listInput(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Capp.Action(capp.SET_OF, ARENA_IO, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO, 0xffffffff)
@@ -848,6 +913,7 @@ func TestCpu_listInput_ZeroMask(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	tape := &io.Tape{}
 
 	err := cpu.listInput(tape, 0)
@@ -858,6 +924,7 @@ func TestCpu_listOutput(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0xAB, 0xffffffff)
@@ -877,6 +944,7 @@ func TestCpu_listOutput_ZeroMask(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	tape := &io.Tape{}
 
 	err := cpu.listOutput(tape, 0)
@@ -887,6 +955,7 @@ func TestCpu_doAlu_ShlClamp(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	result := cpu.doAlu(ALU_OP_SHL, 0x1, 0x20)
 	assert.Equal(uint32(0x1), result)
 
@@ -898,6 +967,7 @@ func TestCpu_doAlu_ShrClamp(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	result := cpu.doAlu(ALU_OP_SHR, 0xFFFFFFFF, 0x20)
 	assert.Equal(uint32(0xFFFFFFFF), result)
 
@@ -909,6 +979,7 @@ func TestCpu_Verbose(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Verbose = true
 	cpu.Ip = IP_MODE_REG
 
@@ -1100,6 +1171,7 @@ func TestCpu_PowerAndTicks(t *testing.T) {
 	assert := assert.New(t)
 
 	cpu := NewCpu(64)
+	defer cpu.Close()
 	cpu.Ip = IP_MODE_REG
 
 	code := MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x1234)

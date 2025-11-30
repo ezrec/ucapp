@@ -17,7 +17,7 @@ import (
 	"go.starlark.net/syntax"
 )
 
-// Macro definition
+// Macro represents a macro definition in the assembly language.
 type Macro struct {
 	LineNo int      // Line number of the macro definition.
 	Args   []string // Arguments for the macro.
@@ -43,7 +43,7 @@ type Assembler struct {
 	Macro   map[string](*Macro) // Map of macros.
 }
 
-// Define a new equate, or redefine an existing equate.
+// Define defines a new equate or redefines an existing equate.
 func (asm *Assembler) Define(equ string, value string) {
 	if asm.Equate == nil {
 		asm.Equate = map[string]string{equ: value}
@@ -344,7 +344,7 @@ func (asm *Assembler) currentIp() int {
 	return last.Ip + len(last.Codes)
 }
 
-// Parse an input stream into opcodes.
+// Parse parses an input stream into a Program containing opcodes.
 func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 
 	scanner := bufio.NewScanner(input)
