@@ -5,8 +5,10 @@ import (
 	"iter"
 )
 
+// Tape provides sequential I/O operations for reading and writing byte streams.
+// It wraps an io.Reader for input and io.Writer for output, converting between
+// bit-level Channel operations and byte-level I/O.
 type Tape struct {
-	AlertChannel
 	Input      io.Reader
 	LastInput  byte
 	ReadIndex  int
@@ -15,12 +17,15 @@ type Tape struct {
 	WriteIndex int
 }
 
-func (tc *Tape) Reset() {
+// Rewind resets the tape's read and write indices to zero and clears buffered output.
+func (tc *Tape) Rewind() {
 	tc.ReadIndex = 0
 	tc.WriteIndex = 0
 	tc.NextOutput = 0
 }
 
+// Receive returns an iterator that yields bits from the input stream,
+// reading bytes as needed and yielding them LSB first.
 func (tc *Tape) Receive() iter.Seq[bool] {
 	return func(yield func(value bool) bool) {
 		for {
@@ -44,6 +49,8 @@ func (tc *Tape) Receive() iter.Seq[bool] {
 	}
 }
 
+// Send writes a bit to the output stream, buffering bits until a complete
+// byte is assembled, then writing it.
 func (tc *Tape) Send(value bool) (err error) {
 	if value {
 		tc.NextOutput |= 1 << tc.WriteIndex
@@ -58,4 +65,10 @@ func (tc *Tape) Send(value bool) (err error) {
 	}
 
 	return
+}
+
+// Alert returns an error response for all requests as Tape does not support
+// control operations.
+func (tc *Tape) Alert(request uint32, response chan uint32) {
+	response <- ^uint32(0)
 }

@@ -1,20 +1,21 @@
 package cpu
 
+// STACK_LIMIT is the maximum stack depth.
 const (
-	STACK_LIMIT = 16 // Maximum stack depth
+	STACK_LIMIT = 16
 )
 
-// Stack simulation state.
+// Stack represents the CPU's call/data stack.
 type Stack struct {
 	Data []uint32
 }
 
-// Push a value on the stack.
+// Push pushes a value onto the stack.
 func (s *Stack) Push(value uint32) {
 	s.Data = append(s.Data, value)
 }
 
-// Pop a value from the stack.
+// Pop removes and returns the top value from the stack.
 func (s *Stack) Pop() (value uint32, ok bool) {
 	value, ok = s.Peek()
 	if ok {
@@ -23,7 +24,7 @@ func (s *Stack) Pop() (value uint32, ok bool) {
 	return
 }
 
-// Empty returns true if the stack if empty.
+// Empty returns true if the stack is empty.
 func (s *Stack) Empty() bool {
 	return len(s.Data) == 0
 }
@@ -33,7 +34,7 @@ func (s *Stack) Full() bool {
 	return len(s.Data) >= STACK_LIMIT
 }
 
-// Peek at the current stack top.
+// Peek returns the top value from the stack without removing it.
 // Returns ok=false if the stack is empty.
 func (s *Stack) Peek() (value uint32, ok bool) {
 	if s.Empty() {
@@ -43,7 +44,7 @@ func (s *Stack) Peek() (value uint32, ok bool) {
 	return s.Data[len(s.Data)-1], true
 }
 
-// Reset the stack.
+// Reset clears all values from the stack.
 func (s *Stack) Reset() {
 	if len(s.Data) > 0 {
 		s.Data = s.Data[:0]

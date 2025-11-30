@@ -33,8 +33,8 @@ fetch depot MASK ; fetch currently selected drum/ring into bits of tags in MASK
 store depot MASK ; append tags' MASK bits to currently selected drum/ring
 alert depot ((0x0 << 23) | DRUM) ; Select a specific drum (20 bits)
 alert depot ((0x1 << 23) | (0 << 8) | RING) ; Select a specific ring (8 bits).
-alert depot ((0x1 << 23) | (1 << 8) | 0) ; Reset current ring's read pointer.
-alert depot ((0x1 << 23) | (1 << 8) | 1) ; Reset current ring's write pointer.
+alert depot ((0x1 << 23) | (1 << 8) | 0) ; Rewind current ring's read pointer.
+alert depot ((0x1 << 23) | (1 << 8) | 1) ; Rewind current ring's write pointer.
 ```
 
 NOTE: A read of a ring cannot go past its current write pointer.
@@ -47,48 +47,24 @@ A drum is divided into rings, each of which can store up to 64K of byte oriented
 
 ### Rings
 
-A `ring` is simply an array of 8-bit data.
+A `ring` is simply an array of 8-bit data, of up to 64K bytes.
 
 #### Compiling a ucapp program to a ring.
 
-When `ucapp` is run with the `--dump <file.ring>` option, a dump of the CAPP before the program would have been executed will be saved to the `<file.ring>` parameter.
+When `ucapp` is run with the `-s` option, a dump of the CAPP before the program would have been executed will be saved to the `depot` in the drum/ring specified in the command line, defaulting to drum 0 ring 255.
 
 ```
-$ go run ./cmd/ucapp --dump hello_world.ring example/hello_world.ucapp
-$ go run ./cmd/ucapp hello_world.ring
+$ go run ./cmd/ucapp -D depot/ -s -c example/hello_world.ucapp
+$ go run ./cmd/ucapp -D depot/
 Hello World!
 ```
 
-### Ring File Format
-
-- 4-byte magic word `\xb5RNG`
-- 1-byte length of metadata including this byte (set to `8` in this version)
-- 1-byte length (as a power of 2, up to 32) of the ring.
-- 1-byte unused (set at zero)
-- 1-byte unused (set at zero)
-- 4-byte (little endian) last-written-value index.
-- The remainder is a byte array.
-
-## Drums
-
-### Drum File Format
-
-- 4-byte magic word `\xb5DRM`
-- 1-byte length of metadata including this byte (set to `4` in this version)
-- 1-byte length (as a power of 2, up to 32) of the CAPP.
-- 1-byte (unused, set as zero)
-- 1-byte (unused, set as zero)
-- For each ring:
-    - A `\xb5RNG` formatted ring.
-
-
 ### Executing a Drum
 
-To execute a drum, use the `--drum` option:
+To execute a drum, use the `-d` option, and `-r` to execute an arbitrary ring.
 
 ```
-$ go run ./cmd/ucapp --verbose --drum example.drum
-ucapp: Drum has 3 rings, executing last ring.
+$ go run ./cmd/ucapp --verbose -D depot/ -d 0x1234 -r 3
 This is ring 3! Calling ring 2...
 This is ring 2! Calling ring 1...
 This is ring 1! Hello World!

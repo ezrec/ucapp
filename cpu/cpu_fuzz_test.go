@@ -43,6 +43,8 @@ func FuzzCpu(f *testing.F) {
 		code.Immediates = code.Immediates[:code.ImmediateNeed()]
 
 		cpu := NewCpu(1024)
+		defer cpu.Close()
+
 		cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
 		cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 		cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0xcafe30, 0xffffffff)
@@ -81,10 +83,10 @@ func FuzzCpu(f *testing.F) {
 		}
 		tape.Input = bytes.NewReader(tape_input)
 		tape_alert := uint32(0x9a128923)
-		if alerted {
-			tape.SetAlert(tape_alert)
-		}
 		cpu.SetChannel(CHANNEL_ID_TAPE, tape)
+		if alerted {
+			cpu.channel[CHANNEL_ID_TAPE].Response <- tape_alert
+		}
 
 		pre_input := slices.Clone(tape_input)
 		pre_value := map[CodeIR]uint32{}
@@ -196,7 +198,7 @@ func FuzzCpu(f *testing.F) {
 				switch code.Class() {
 				case OP_IO:
 					_, channel, _ := code.IoDecode()
-					_, err_tmp := cpu.GetChannel(channel)
+					_, _, err_tmp := cpu.GetChannel(channel)
 					if err_tmp == nil {
 						assert.NoError(err, code_str)
 					} else {
@@ -420,7 +422,7 @@ func FuzzCpu(f *testing.F) {
 				}
 			case IO_OP_ALERT:
 				if ch == CHANNEL_ID_TAPE {
-					alert, ok := tape.GetAlert()
+					alert, ok := <-cpu.channel[CHANNEL_ID_TAPE].Response
 					if assert.True(ok) {
 						assert.Equal(alert, mask)
 					}

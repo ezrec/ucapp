@@ -85,7 +85,7 @@ func TestRom_Send(t *testing.T) {
 	assert.Equal(ErrChannelFull, err)
 }
 
-func TestTape_Reset(t *testing.T) {
+func TestTape_Rewind(t *testing.T) {
 	assert := assert.New(t)
 
 	tape := &Tape{
@@ -94,7 +94,7 @@ func TestTape_Reset(t *testing.T) {
 		NextOutput: 42,
 	}
 
-	tape.Reset()
+	tape.Rewind()
 
 	assert.Equal(0, tape.ReadIndex)
 	assert.Equal(0, tape.WriteIndex)
@@ -106,7 +106,7 @@ func TestTape_Receive(t *testing.T) {
 
 	input := bytes.NewBuffer([]byte{0x55, 0xAA, 0xFF})
 	tape := &Tape{Input: input}
-	tape.Reset()
+	tape.Rewind()
 
 	seq := tape.Receive()
 	var bits []bool
@@ -139,7 +139,7 @@ func TestTape_Receive_EOF(t *testing.T) {
 
 	input := bytes.NewBuffer([]byte{0x01})
 	tape := &Tape{Input: input}
-	tape.Reset()
+	tape.Rewind()
 
 	seq := tape.Receive()
 	count := 0
@@ -155,7 +155,7 @@ func TestTape_Receive_ReadError(t *testing.T) {
 
 	// Use a reader that returns an error
 	tape := &Tape{Input: &errorReader{}}
-	tape.Reset()
+	tape.Rewind()
 
 	seq := tape.Receive()
 	count := 0
@@ -177,7 +177,7 @@ func TestTape_Send(t *testing.T) {
 
 	output := &bytes.Buffer{}
 	tape := &Tape{Output: output}
-	tape.Reset()
+	tape.Rewind()
 
 	// Send 0x55 (0101 0101)
 	bits := []bool{true, false, true, false, true, false, true, false}
@@ -203,7 +203,7 @@ func TestTape_Send_PartialByte(t *testing.T) {
 
 	output := &bytes.Buffer{}
 	tape := &Tape{Output: output}
-	tape.Reset()
+	tape.Rewind()
 
 	// Send only 3 bits
 	err := tape.Send(true)
@@ -219,7 +219,7 @@ func TestTape_Send_PartialByte(t *testing.T) {
 	assert.Equal(byte(0x03), tape.NextOutput)
 }
 
-func TestTemporary_Reset(t *testing.T) {
+func TestTemporary_Rewind(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := &Temporary{
@@ -230,7 +230,7 @@ func TestTemporary_Reset(t *testing.T) {
 		Data:       []bool{true, false, true},
 	}
 
-	temp.Reset()
+	temp.Rewind()
 
 	assert.Equal(0, temp.ReadIndex)
 	assert.Equal(0, temp.WriteIndex)
@@ -242,7 +242,7 @@ func TestTemporary_Send_Receive(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := &Temporary{Capacity: 8}
-	temp.Reset()
+	temp.Rewind()
 
 	// Send some bits
 	err := temp.Send(true)
@@ -271,7 +271,7 @@ func TestTemporary_Send_CapacityFull(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := &Temporary{Capacity: 3}
-	temp.Reset()
+	temp.Rewind()
 
 	err := temp.Send(true)
 	assert.NoError(err)
@@ -289,7 +289,7 @@ func TestTemporary_WrapAround(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := &Temporary{Capacity: 4}
-	temp.Reset()
+	temp.Rewind()
 
 	// Fill up
 	temp.Send(true)
@@ -346,7 +346,7 @@ func TestTemporary_Receive_EarlyStop(t *testing.T) {
 	assert := assert.New(t)
 
 	temp := &Temporary{Capacity: 8}
-	temp.Reset()
+	temp.Rewind()
 
 	temp.Send(true)
 	temp.Send(false)

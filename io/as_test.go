@@ -14,7 +14,7 @@ type mockChannel struct {
 	receiveCalls int
 }
 
-func (mc *mockChannel) Reset() {}
+func (mc *mockChannel) Rewind() {}
 
 func (mc *mockChannel) Send(value bool) error {
 	mc.sendCalls = append(mc.sendCalls, value)
@@ -32,9 +32,7 @@ func (mc *mockChannel) Receive() iter.Seq[bool] {
 	}
 }
 
-func (mc *mockChannel) Alert(value uint32)             {}
-func (mc *mockChannel) GetAlert() (uint32, bool)       { return 0, false }
-func (mc *mockChannel) Await() (value uint32, ok bool) { return 0, false }
+func (mc *mockChannel) Alert(value uint32, response chan uint32) { response <- 0 }
 
 func TestSendAsUint8(t *testing.T) {
 	assert := assert.New(t)

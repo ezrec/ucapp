@@ -7,15 +7,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDepot_Reset(t *testing.T) {
+func TestDepot_Rewind(t *testing.T) {
 	assert := assert.New(t)
 
-	drum1 := &Drum{}
-	drum1.Reset()
+	drum1 := &Drum{Rings: map[uint8](*Ring){
+		0: &Ring{},
+	}}
+	drum1.Rewind()
 	drum1.Rings[0].WriteIndex = 10
 
-	drum2 := &Drum{}
-	drum2.Reset()
+	drum2 := &Drum{Rings: map[uint8](*Ring){
+		0: &Ring{},
+	}}
+	drum2.Rewind()
 	drum2.Rings[0].WriteIndex = 20
 
 	depot := &Depot{
@@ -25,14 +29,18 @@ func TestDepot_Reset(t *testing.T) {
 		},
 	}
 
-	depot.Reset()
+	depot.Rewind()
 
 	// Should reset all drums (reset sets ReadIndex to 0)
 	assert.Equal(0, depot.Drums[1].Rings[0].ReadIndex)
 	assert.Equal(0, depot.Drums[2].Rings[0].ReadIndex)
 
-	// Should have drum 0 selected and created
-	assert.NotNil(depot.Drums[0])
+	// Should have no drum selected.
+	assert.Nil(depot.Drum)
+
+	// Drums 1 and 2 should still exist
+	assert.NotNil(depot.Drums[1])
+	assert.NotNil(depot.Drums[2])
 }
 
 func TestDepot_selectDrum(t *testing.T) {
@@ -41,13 +49,23 @@ func TestDepot_selectDrum(t *testing.T) {
 	depot := &Depot{}
 
 	// Select drum that doesn't exist
-	depot.selectDrum(5)
-	assert.NotNil(depot.Drums)
-	assert.NotNil(depot.Drums[5])
+	var value uint32
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
 
-	// Select same drum again - should not create new
+	depot.Alert(5, awaitResponse)
+	value = <-awaitResponse
+	assert.Nil(depot.Drum)
+	assert.Equal(^uint32(0), value)
+
+	// Create a drum.
+	depot.Drums = make(map[uint32](*Drum))
+	depot.Drums[5] = &Drum{}
 	existingDrum := depot.Drums[5]
-	depot.selectDrum(5)
+	depot.Alert(5, awaitResponse)
+	value = <-awaitResponse
+	assert.NotNil(depot.Drum)
+	assert.Equal(uint32(0), value)
 	assert.Equal(existingDrum, depot.Drums[5])
 }
 
@@ -55,22 +73,33 @@ func TestDepot_Alert_Select(t *testing.T) {
 	assert := assert.New(t)
 
 	depot := &Depot{}
-	depot.Reset()
+	depot.Rewind()
+
+	var response uint32
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
 
 	// Create and select drum 1
-	depot.selectDrum(1)
-	depot.Alert(DEPOT_OP_SELECT | 1)
+	depot.Drums = make(map[uint32](*Drum))
+	depot.Drums[1] = &Drum{}
+	depot.Alert(DEPOT_OP_SELECT|1, awaitResponse)
+	response = <-awaitResponse
+	assert.Equal(uint32(0), response)
 	assert.NotNil(depot.Drum)
 
 	SendAsUint8(depot, 0x42)
 
 	// Create and select drum 2
-	depot.selectDrum(2)
-	depot.Alert(DEPOT_OP_SELECT | 2)
+	depot.Drums[2] = &Drum{}
+	depot.Alert(DEPOT_OP_SELECT|2, awaitResponse)
+	response = <-awaitResponse
+	assert.Equal(uint32(0), response)
 	SendAsUint8(depot, 0x99)
 
 	// Switch back to drum 1
-	depot.Alert(DEPOT_OP_SELECT | 1)
+	depot.Alert(DEPOT_OP_SELECT|1, awaitResponse)
+	response = <-awaitResponse
+	assert.Equal(uint32(0), response)
 
 	// Should read from drum 1
 	seq := ReceiveAsUint8(depot)
@@ -81,7 +110,9 @@ func TestDepot_Alert_Select(t *testing.T) {
 	stop()
 
 	// Switch to drum 2
-	depot.Alert(DEPOT_OP_SELECT | 2)
+	depot.Alert(DEPOT_OP_SELECT|2, awaitResponse)
+	response = <-awaitResponse
+	assert.Equal(uint32(0), response)
 
 	// Should read from drum 2
 	seq = ReceiveAsUint8(depot)
@@ -96,19 +127,22 @@ func TestDepot_Alert_SelectNonExistent(t *testing.T) {
 	assert := assert.New(t)
 
 	depot := &Depot{}
-	depot.Reset()
+	depot.Rewind()
 
-	// After Reset, depot.Drum should point to drum 0
+	var value uint32
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
+
+	// After Rewind, depot.Drum should point to drum 0
 	depot.Drum = depot.Drums[0]
 
 	// Delete drum 99 to ensure it doesn't exist
 	delete(depot.Drums, 99)
 
-	depot.Alert(DEPOT_OP_SELECT | 99)
+	depot.Alert(DEPOT_OP_SELECT|99, awaitResponse)
+	value = <-awaitResponse
 
 	// Should send error signal
-	value, ok := depot.Await()
-	assert.True(ok)
 	assert.Equal(^uint32(0), value)
 }
 
@@ -116,29 +150,36 @@ func TestDepot_Alert_DrumOperation(t *testing.T) {
 	assert := assert.New(t)
 
 	depot := &Depot{}
-	depot.Reset()
+	depot.Rewind()
 
-	// Set depot.Drum to point to the drum created by Reset
-	depot.Drum = depot.Drums[0]
+	var value uint32
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
+
+	// Select drum 1.
+	depot.Drums = make(map[uint32](*Drum))
+	depot.Drums[1] = &Drum{}
+	depot.Alert(DEPOT_OP_SELECT|1, awaitResponse)
+	<-awaitResponse
+
+	assert.Equal(depot.Drums[1], depot.Drum)
 
 	// Write some data to default drum
 	SendAsUint8(depot, 0x55)
 
 	// Send drum operation to select ring 1
-	depot.Alert(DEPOT_OP_DRUM | DRUM_OP_SELECT | 1)
+	depot.Alert(DEPOT_OP_DRUM|DRUM_OP_SELECT|1, awaitResponse)
+	value = <-awaitResponse
 
 	// Should get response from drum
-	value, ok := depot.Await()
-	assert.True(ok)
 	assert.Equal(uint32(0), value) // Empty ring
 
 	// Write to ring 1
 	SendAsUint8(depot, 0xAA)
 
 	// Select ring 0 again
-	depot.Alert(DEPOT_OP_DRUM | DRUM_OP_SELECT)
-	value, ok = depot.Await()
-	assert.True(ok)
+	depot.Alert(DEPOT_OP_DRUM|DRUM_OP_SELECT, awaitResponse)
+	value = <-awaitResponse
 	assert.Equal(uint32(1), value) // Has 1 byte
 
 	// Should read from ring 0
@@ -150,12 +191,18 @@ func TestDepot_Alert_DrumOperation(t *testing.T) {
 	stop()
 }
 
-func TestDepot_Alert_DrumResetRead(t *testing.T) {
+func TestDepot_Alert_DrumRewindRead(t *testing.T) {
 	assert := assert.New(t)
 
 	depot := &Depot{}
-	depot.Reset()
+	depot.Rewind()
+	depot.Drums = make(map[uint32](*Drum))
+	depot.Drums[0] = &Drum{}
 	depot.Drum = depot.Drums[0]
+
+	var response uint32
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
 
 	SendAsUint8(depot, 0x12)
 	SendAsUint8(depot, 0x34)
@@ -168,11 +215,10 @@ func TestDepot_Alert_DrumResetRead(t *testing.T) {
 	assert.Equal(uint8(0x12), value)
 	stop()
 
-	// Reset read pointer via drum operation
-	depot.Alert(DEPOT_OP_DRUM | DRUM_OP_RING | RING_OP_RESET_READ)
-	resp, ok := depot.Await()
-	assert.True(ok)
-	assert.Equal(uint32(0), resp)
+	// Rewind read pointer via drum operation
+	depot.Alert(DEPOT_OP_DRUM|DRUM_OP_RING|RING_OP_REWIND_READ, awaitResponse)
+	response = <-awaitResponse
+	assert.Equal(uint32(0), response)
 
 	// Should read first byte again
 	seq = ReceiveAsUint8(depot)
@@ -187,15 +233,17 @@ func TestDrum_Alert_RingOperation(t *testing.T) {
 	assert := assert.New(t)
 
 	drum := &Drum{}
-	drum.Reset()
+	drum.Rewind()
+
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
 
 	// Write to default ring
 	SendAsUint8(drum, 0x01)
 
-	// Reset write index via ring operation
-	drum.Alert(DRUM_OP_RING | RING_OP_RESET_WRITE)
-	value, ok := drum.Await()
-	assert.True(ok)
+	// Rewind write index via ring operation
+	drum.Alert(DRUM_OP_RING|RING_OP_REWIND_WRITE, awaitResponse)
+	value := <-awaitResponse
 	assert.Equal(uint32(0), value)
 
 	// WriteIndex is now 0, but data is still [0x01]

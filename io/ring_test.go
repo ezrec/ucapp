@@ -10,47 +10,39 @@ func TestRing_Alert(t *testing.T) {
 	assert := assert.New(t)
 
 	ring := &Ring{}
-	ring.Reset()
+	ring.Rewind()
 	ring.WriteIndex = 42
 	ring.ReadIndex = 10
 
-	// Test RING_OP_RESET_READ
-	ring.Alert(RING_OP_RESET_READ)
+	var value uint32
+	awaitResponse := make(chan uint32, 1)
+	defer close(awaitResponse)
+
+	// Test RING_OP_REWIND_READ
+	ring.Alert(RING_OP_REWIND_READ, awaitResponse)
+	value = <-awaitResponse
 	assert.Equal(0, ring.ReadIndex)
 	assert.Equal(42, ring.WriteIndex)
-
-	value, ok := ring.Await()
-	assert.True(ok)
 	assert.Equal(uint32(0), value)
 
-	// Test RING_OP_RESET_WRITE
-	ring.Alert(RING_OP_RESET_WRITE)
+	// Test RING_OP_REWIND_WRITE
+	ring.Alert(RING_OP_REWIND_WRITE, awaitResponse)
+	value = <-awaitResponse
 	assert.Equal(0, ring.WriteIndex)
 
-	value, ok = ring.Await()
-	assert.True(ok)
 	assert.Equal(uint32(0), value)
 
 	// Test invalid operation
-	ring.Alert(99)
-	value, ok = ring.Await()
-	assert.True(ok)
+	ring.Alert(99, awaitResponse)
+	value = <-awaitResponse
 	assert.Equal(^uint32(0), value)
-}
-
-func TestRing_Send_Nil(t *testing.T) {
-	assert := assert.New(t)
-
-	var ring *Ring
-	err := ring.Send(true)
-	assert.Equal(ErrChannelFull, err)
 }
 
 func TestRing_Send_CapacityFull(t *testing.T) {
 	assert := assert.New(t)
 
 	ring := &Ring{Capacity: 3}
-	ring.Reset()
+	ring.Rewind()
 
 	err := ring.Send(true)
 	assert.NoError(err)
