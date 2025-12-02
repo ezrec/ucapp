@@ -199,6 +199,20 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+
+		if verbose {
+			for n := range 6 {
+				log.Printf("r%v: 0x%08x", n, emu.Cpu.Register[n])
+			}
+			for !emu.Cpu.Stack.Empty() {
+				val, _ := emu.Cpu.Stack.Pop()
+				log.Printf("stack: 0x%08x", val)
+			}
+
+			for val := range capp_io.ReceiveAsUint8(&emu.Temporary) {
+				log.Printf("temp: 0x%02x", val)
+			}
+		}
 	}
 
 	if len(depot_path) > 0 && depot_changed {
