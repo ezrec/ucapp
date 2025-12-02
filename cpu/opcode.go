@@ -10,8 +10,8 @@ type CodeCond int
 //go:generate go tool stringer -linecomment -type=CodeCond
 const (
 	COND_ALWAYS = CodeCond(0) // .
-	COND_TRUE   = CodeCond(1) // ?
-	COND_FALSE  = CodeCond(2) // !
+	COND_TRUE   = CodeCond(1) // +
+	COND_FALSE  = CodeCond(2) // -
 	COND_NEVER  = CodeCond(3) // ~
 )
 

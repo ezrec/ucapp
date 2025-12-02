@@ -43,7 +43,8 @@ func TestAssemblerIo(t *testing.T) {
 	asm := &Assembler{}
 
 	program := []string{
-		"? trap",
+		"+ trap",
+		"- trap",
 	}
 
 	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
@@ -54,8 +55,10 @@ func TestAssemblerIo(t *testing.T) {
 	}
 
 	expected := []Opcode{
-		{LineNo: 1, Ip: 0, Words: []string{"?", "trap"},
+		{LineNo: 1, Ip: 0, Words: []string{"+", "trap"},
 			Codes: []Code{MakeCodeIo(COND_TRUE, IO_OP_AWAIT, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF)}},
+		{LineNo: 2, Ip: 1, Words: []string{"-", "trap"},
+			Codes: []Code{MakeCodeIo(COND_FALSE, IO_OP_AWAIT, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF)}},
 	}
 
 	opEqual(t, expected, prog.Opcodes)

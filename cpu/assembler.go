@@ -569,10 +569,10 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	cond := COND_ALWAYS
 
 	switch words[0] {
-	case "?":
+	case "+":
 		cond = COND_TRUE
 		words = words[1:]
-	case "!":
+	case "-":
 		cond = COND_FALSE
 		words = words[1:]
 	}
