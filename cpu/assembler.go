@@ -36,19 +36,21 @@ var sysEquate = map[string]string{
 
 // Assembler is a single pass macro assembler for the μCAPP system.
 type Assembler struct {
-	Verbose bool                // If set, verbosely logs the assembler actions.
-	Opcode  []Opcode            // List of generated opcodes.
-	Label   map[string]int      // Map of jump labels to opcode indexes.
-	Equate  map[string]string   // Map of equates.
-	Macro   map[string](*Macro) // Map of macros.
+	Verbose bool     // If set, verbosely logs the assembler actions.
+	Opcode  []Opcode // List of generated opcodes.
+
+	predefine map[string]string   // Predefines
+	Label     map[string]int      // Map of jump labels to opcode indexes.
+	Equate    map[string]string   // Map of equates.
+	Macro     map[string](*Macro) // Map of macros.
 }
 
 // Define defines a new equate or redefines an existing equate.
-func (asm *Assembler) Define(equ string, value string) {
-	if asm.Equate == nil {
-		asm.Equate = map[string]string{equ: value}
+func (asm *Assembler) Predefine(equ string, value string) {
+	if asm.predefine == nil {
+		asm.predefine = map[string]string{equ: value}
 	} else {
-		asm.Equate[equ] = value
+		asm.predefine[equ] = value
 	}
 }
 
@@ -366,6 +368,9 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 	}
 	clear(asm.Macro)
 	asm.Equate = maps.Clone(sysEquate)
+	for attr, val := range asm.predefine {
+		asm.Equate[attr] = val
+	}
 
 	for scanner.Scan() {
 		text := scanner.Text()

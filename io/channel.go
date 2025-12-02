@@ -12,6 +12,8 @@ import (
 // Channels operate at the bit level and support sequential reading, writing,
 // and control operations via alerts.
 type Channel interface {
+	// Per-channel defines
+	Defines() iter.Seq2[string, string]
 	// Rewind resets the channel to its initial state.
 	Rewind()
 	// Receive returns an iterator that yields bits from the channel.

@@ -1,8 +1,10 @@
 package io
 
 import (
+	"fmt"
 	"io"
 	"iter"
+	"maps"
 )
 
 const (
@@ -14,8 +16,15 @@ const (
 	RING_OP_REWIND_WRITE = 1
 
 	// RING_DEFAULT_CAPACITY is the default capacity in bits for a new ring.
-	RING_DEFAULT_CAPACITY = 65536
+	RING_DEFAULT_CAPACITY = 65536 * 8
 )
+
+var _ring_defines = map[string]string{
+	"RING_OP_MASK":          fmt.Sprintf("0x%x", RING_OP_MASK),
+	"RING_OP_REWIND_READ":   fmt.Sprintf("0x%x", RING_OP_REWIND_READ),
+	"RING_OP_REWIND_WRITE":  fmt.Sprintf("0x%x", RING_OP_REWIND_WRITE),
+	"RING_DEFAULT_CAPACITY": fmt.Sprintf("0x%x", RING_DEFAULT_CAPACITY),
+}
 
 // Ring represents a circular buffer storage device with separate read and write
 // positions. It stores up to 64KB of data and supports sequential bit-level I/O.
@@ -32,6 +41,11 @@ type Ring struct {
 }
 
 var _ Channel = (*Ring)(nil)
+
+// Defines returns an iter of defines for the channel.
+func (ring *Ring) Defines() iter.Seq2[string, string] {
+	return maps.All(_ring_defines)
+}
 
 // Rewind resets the ring's read position to the start and write position to the end
 // of existing data. Initializes the data buffer if not already allocated.
