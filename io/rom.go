@@ -1,16 +1,22 @@
 package io
 
 import (
+	"fmt"
 	"iter"
+	"maps"
 )
 
-// ARENA_ID_PROGRAM is the arena ID for program memory space.
-const ARENA_ID_PROGRAM = uint32(2 << 30)
-
 const (
+	// ARENA_ID_PROGRAM is the arena ID for program memory space.
+	ARENA_ID_PROGRAM = uint32(2 << 30)
 	// ROM_OP_TRAP sets up the trap notification channel for the ROM.
 	ROM_OP_TRAP = uint32(0)
 )
+
+var _rom_defines = map[string]string{
+	"ARENA_ID_PROGRAM": fmt.Sprintf("0x%x", ARENA_ID_PROGRAM),
+	"ROM_OP_TRAP":      fmt.Sprintf("0x%x", ROM_OP_TRAP),
+}
 
 // Rom represents read-only memory that can issue trap notifications.
 // It contains program data as 32-bit words and supports bit-level reading
@@ -22,6 +28,11 @@ type Rom struct {
 }
 
 var _ Channel = (*Rom)(nil)
+
+// Defines returns an iter of defines for the channel.
+func (rc *Rom) Defines() iter.Seq2[string, string] {
+	return maps.All(_rom_defines)
+}
 
 // Trap sends a trap notification to the registered trap channel if one is set.
 func (rc *Rom) Trap() {

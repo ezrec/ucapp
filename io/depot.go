@@ -4,10 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
+	"maps"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ezrec/ucapp/internal"
 )
 
 const (
@@ -21,6 +25,13 @@ const (
 	DEPOT_OP_SELECT_MASK = ((1 << 23) - 1)
 )
 
+var _depot_defines = map[string]string{
+	"DEPOT_OP_MASK":        fmt.Sprintf("0x%x", DEPOT_OP_MASK),
+	"DEPOT_OP_SELECT":      fmt.Sprintf("0x%x", DEPOT_OP_SELECT),
+	"DEPOT_OP_SELECT_MASK": fmt.Sprintf("0x%x", DEPOT_OP_SELECT_MASK),
+	"DEPOT_OP_DRUM":        fmt.Sprintf("0x%x", DEPOT_OP_DRUM),
+}
+
 // Depot represents a collection of drums providing persistent storage.
 // It implements the Channel interface and manages multiple Drum instances,
 // allowing selection between them via Alert operations.
@@ -30,6 +41,11 @@ type Depot struct {
 }
 
 var _ Channel = &Depot{}
+
+// Defines returns an iter of defines for the channel.
+func (depot *Depot) Defines() iter.Seq2[string, string] {
+	return internal.IterSeq2Concat(maps.All(_depot_defines), (&Drum{}).Defines())
+}
 
 // Unmarshal loads depot data from a file system by scanning for drum directories
 // matching the pattern XXXXXX.drum (6 hex digits).

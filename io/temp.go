@@ -2,6 +2,7 @@ package io
 
 import (
 	"iter"
+	"maps"
 )
 
 // Temporary implements a circular buffer for temporary bit storage.
@@ -16,6 +17,11 @@ type Temporary struct {
 }
 
 var _ Channel = (*Temporary)(nil)
+
+// Defines returns an iter of defines for the channel.
+func (temp *Temporary) Defines() iter.Seq2[string, string] {
+	return maps.All(map[string]string{})
+}
 
 // Rewind resets the temporary storage to empty, resetting indices and
 // reinitializing the data buffer.

@@ -4,8 +4,12 @@ package emulator
 
 import (
 	"errors"
+	"fmt"
+	"iter"
+	"maps"
 
 	"github.com/ezrec/ucapp/cpu"
+	"github.com/ezrec/ucapp/internal"
 	"github.com/ezrec/ucapp/io"
 )
 
@@ -14,6 +18,10 @@ const (
 	ALU_TICK_COST  = 4    // Cost of an ALU tick.
 	CAPP_SIZE      = 8192 // 4K for program text, 1K for compiled, 3K for work
 )
+
+var _emulator_defines = map[string]string{
+	"CAPP_SIZE": fmt.Sprintf("%v", CAPP_SIZE),
+}
 
 // Emulator state. CPU + CAPP + IO channels.
 type Emulator struct {
@@ -48,6 +56,17 @@ func NewEmulator() (emu *Emulator) {
 	emu.Rom.Alert(io.ROM_OP_TRAP, emu.TrapRequest)
 
 	return
+}
+
+// Defines returns an iterator over all of the defines
+func (emu *Emulator) Defines() iter.Seq2[string, string] {
+	return internal.IterSeq2Concat(maps.All(_emulator_defines),
+		emu.Cpu.Defines(),
+		emu.Temporary.Defines(),
+		emu.Rom.Defines(),
+		emu.Tape.Defines(),
+		emu.Depot.Defines(),
+	)
 }
 
 // Close the emulator

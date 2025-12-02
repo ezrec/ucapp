@@ -4,7 +4,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -131,7 +130,9 @@ func main() {
 		defer inf.Close()
 
 		asm := &cpu.Assembler{}
-		asm.Define("CAPP_SIZE", fmt.Sprintf("%v", emulator.CAPP_SIZE))
+		for define, value := range emu.Defines() {
+			asm.Predefine(define, value)
+		}
 		prog, err = asm.Parse(inf)
 		if err != nil {
 			log.Fatalf("%v: %v", compile, err)

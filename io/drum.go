@@ -5,10 +5,13 @@ import (
 	"io"
 	"io/fs"
 	"iter"
+	"maps"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ezrec/ucapp/internal"
 )
 
 const (
@@ -22,12 +25,24 @@ const (
 	DRUM_OP_RING = (1 << 8)
 )
 
+var _drum_defines = map[string]string{
+	"DRUM_OP_MASK":        fmt.Sprintf("0x%x", DRUM_OP_MASK),
+	"DRUM_OP_SELECT":      fmt.Sprintf("0x%x", DRUM_OP_SELECT),
+	"DRUM_OP_SELECT_MASK": fmt.Sprintf("0x%x", DRUM_OP_SELECT_MASK),
+	"DRUM_OP_RING":        fmt.Sprintf("0x%x", DRUM_OP_RING),
+}
+
 // Drum represents a collection of up to 256 rings, providing persistent storage
 // similar to a drum memory device. It implements the Channel interface by
 // forwarding operations to the currently selected ring.
 type Drum struct {
 	*Ring
 	Rings map[uint8](*Ring)
+}
+
+// Defines returns an iter of defines for the channel.
+func (dc *Drum) Defines() iter.Seq2[string, string] {
+	return internal.IterSeq2Concat(maps.All(_drum_defines), (&Ring{}).Defines())
 }
 
 // Rewind resets all rings in the drum to their initial positions.

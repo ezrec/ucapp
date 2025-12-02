@@ -3,7 +3,9 @@ package cpu
 import (
 	"errors"
 	"fmt"
+	"iter"
 	"log"
+	"maps"
 	"math/bits"
 
 	"github.com/ezrec/ucapp/capp"
@@ -21,6 +23,13 @@ const (
 	IP_MODE_REG   = uint32(0b10 << 30) // Execute from register bank
 	IP_MODE_MASK  = uint32(0b11 << 30) // Mask of execute modes.
 )
+
+var _cpu_defines = map[string]string{
+	"IP_MODE_CAPP":  fmt.Sprintf("0x%x", IP_MODE_CAPP),
+	"IP_MODE_STACK": fmt.Sprintf("0x%x", IP_MODE_STACK),
+	"IP_MODE_REG":   fmt.Sprintf("0x%x", IP_MODE_REG),
+	"IP_MODE_MASK":  fmt.Sprintf("0x%x", IP_MODE_MASK),
+}
 
 // CpuChannel represents an I/O channel attached to the CPU with its response channel.
 type CpuChannel struct {
@@ -54,6 +63,11 @@ func NewCpu(count uint) (cpu *Cpu) {
 	}
 
 	return
+}
+
+// Defines for the cpu
+func (cpu *Cpu) Defines() iter.Seq2[string, string] {
+	return maps.All(_cpu_defines)
 }
 
 // Close closes all I/O channels associated with the CPU.

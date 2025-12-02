@@ -17,9 +17,10 @@ type dummyIo struct {
 	response chan uint32
 }
 
-func (di *dummyIo) Rewind()                 {}
-func (di *dummyIo) Send(bool) error         { return nil }
-func (di *dummyIo) Receive() iter.Seq[bool] { return func(func(bool) bool) {} }
+func (di *dummyIo) Defines() iter.Seq2[string, string] { return func(func(string, string) bool) {} }
+func (di *dummyIo) Rewind()                            {}
+func (di *dummyIo) Send(bool) error                    { return nil }
+func (di *dummyIo) Receive() iter.Seq[bool]            { return func(func(bool) bool) {} }
 func (di *dummyIo) Alert(value uint32, response chan uint32) {
 	di.response = response
 	di.response <- value
@@ -994,11 +995,12 @@ func TestAssembler_Define(t *testing.T) {
 	assert := assert.New(t)
 
 	asm := &Assembler{}
-	asm.Define("TEST", "0x1234")
-	assert.Equal("0x1234", asm.Equate["TEST"])
+	asm.Predefine("TEST1", "0x1234")
+	asm.Predefine("TEST2", "0x5678")
 
-	asm.Define("TEST", "0x5678")
-	assert.Equal("0x5678", asm.Equate["TEST"])
+	program := "alu set r0 TEST1\nalu set r1 TEST2\n"
+	_, err := asm.Parse(strings.NewReader(program))
+	assert.NoError(err)
 }
 
 func TestAssembler_valueOf(t *testing.T) {

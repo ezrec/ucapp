@@ -88,17 +88,30 @@ func TestRom_Send(t *testing.T) {
 func TestTape_Rewind(t *testing.T) {
 	assert := assert.New(t)
 
-	tape := &Tape{
-		ReadIndex:  5,
-		WriteIndex: 3,
-		NextOutput: 42,
-	}
-
+	input := bytes.NewBuffer([]byte{0x55, 0xAA, 0xFF})
+	tape := &Tape{Input: input}
 	tape.Rewind()
 
-	assert.Equal(0, tape.ReadIndex)
-	assert.Equal(0, tape.WriteIndex)
-	assert.Equal(byte(0), tape.NextOutput)
+	count := 0
+	for range ReceiveAsUint8(tape) {
+		count++
+	}
+	assert.Equal(3, count)
+
+	count = 0
+	for range ReceiveAsUint8(tape) {
+		count++
+	}
+	assert.Equal(0, count)
+
+	// Rewind is not possible on a tape.
+	tape.Rewind()
+
+	count = 0
+	for range ReceiveAsUint8(tape) {
+		count++
+	}
+	assert.Equal(0, count)
 }
 
 func TestTape_Receive(t *testing.T) {
@@ -215,8 +228,22 @@ func TestTape_Send_PartialByte(t *testing.T) {
 
 	// Nothing written yet since we haven't completed a byte
 	assert.Equal(0, output.Len())
-	assert.Equal(3, tape.WriteIndex)
-	assert.Equal(byte(0x03), tape.NextOutput)
+
+	// Send 5 more bits
+	err = tape.Send(true)
+	assert.NoError(err)
+	err = tape.Send(true)
+	assert.NoError(err)
+	err = tape.Send(false)
+	assert.NoError(err)
+	err = tape.Send(true)
+	assert.NoError(err)
+	err = tape.Send(false)
+	assert.NoError(err)
+
+	assert.Equal(1, output.Len())
+	assert.Equal(uint8(0x5b), output.Bytes()[0])
+
 }
 
 func TestTemporary_Rewind(t *testing.T) {

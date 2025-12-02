@@ -14,6 +14,10 @@ type mockChannel struct {
 	receiveCalls int
 }
 
+func (mc *mockChannel) Defines() iter.Seq2[string, string] {
+	return func(func(string, string) bool) {}
+}
+
 func (mc *mockChannel) Rewind() {}
 
 func (mc *mockChannel) Send(value bool) error {
