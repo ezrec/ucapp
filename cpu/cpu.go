@@ -391,7 +391,11 @@ func (cpu *Cpu) Execute(code Code) (err error) {
 		}
 	}()
 	if cpu.Verbose {
-		log.Printf("%03x: %v", cpu.Ip, code)
+		cond := " "
+		if cpu.Cond {
+			cond = "*"
+		}
+		log.Printf("%03x: %s%v", cpu.Ip, cond, code)
 	}
 
 	cp := cpu.Capp
