@@ -87,6 +87,9 @@ func main() {
 		emu.Depot.Unmarshal(root.FS())
 
 		if _, ok := emu.Depot.Drums[uint32(drum)]; !ok {
+			if emu.Depot.Drums == nil {
+				emu.Depot.Drums = map[uint32](*capp_io.Drum){}
+			}
 			emu.Depot.Drums[uint32(drum)] = &capp_io.Drum{}
 		}
 
