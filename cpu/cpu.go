@@ -562,7 +562,7 @@ func (cpu *Cpu) Execute(code Code) (err error) {
 		var set_await func(value uint32)
 		if op == IO_OP_AWAIT {
 			switch ir_value {
-			case IR_CONST_0:
+			case IR_CONST_FFFFFFFF:
 				// drop-on-floor
 				set_await = func(value uint32) {}
 			case IR_REG_R0, IR_REG_R1, IR_REG_R2, IR_REG_R3, IR_REG_R4, IR_REG_R5:
