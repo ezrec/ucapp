@@ -32,6 +32,8 @@ var (
 	ErrOpcodeImm    = errors.New(f("imm"))
 
 	// Assembler errors
+	ErrDwSyntax           = errors.New(f(".dw syntax"))
+	ErrDwInvalid          = errors.New(f(".dw invalid value"))
 	ErrEquateSyntax       = errors.New(f(".equ syntax"))
 	ErrEquateDuplicate    = errors.New(f(".equ duplicated"))
 	ErrLabelDuplicate     = errors.New(f("label duplicated"))

@@ -6,7 +6,8 @@ import (
 
 // Program is a list of opcodes.
 type Program struct {
-	Opcodes []Opcode
+	Opcodes []Opcode // Opcodes and metadata
+	Data    []uint32 // Data section
 }
 
 // Debug contains debugging information for a program instruction pointer.
@@ -33,6 +34,7 @@ func (prog *Program) Debug(ip uint16) (dbg Debug) {
 
 // Binary returns the program as a list of 32-bit CAPP memory words.
 func (prog *Program) Binary() (bins []uint32) {
+	// Append the code section
 	for ip, code := range prog.Codes() {
 		var data []uint32
 		for _, imm := range code.Immediates {
@@ -40,6 +42,11 @@ func (prog *Program) Binary() (bins []uint32) {
 		}
 		data = append(data, ARENA_CODE|(uint32(ip)<<16)|uint32(code.Word))
 		bins = append(bins, data...)
+	}
+
+	// Append the data section
+	for _, data := range prog.Data {
+		bins = append(bins, ARENA_DATA|data)
 	}
 
 	return
