@@ -30,7 +30,7 @@ var sysEquate = map[string]string{
 	"ARENA_MASK": fmt.Sprintf("%#v", ARENA_MASK),
 	"ARENA_IO":   fmt.Sprintf("%#v", ARENA_IO),
 	"ARENA_FREE": fmt.Sprintf("%#v", ARENA_FREE),
-	"ARENA_TMP":  fmt.Sprintf("%#v", ARENA_TMP),
+	"ARENA_DATA": fmt.Sprintf("%#v", ARENA_DATA),
 	"ARENA_CODE": fmt.Sprintf("%#v", ARENA_CODE),
 }
 
@@ -38,6 +38,7 @@ var sysEquate = map[string]string{
 type Assembler struct {
 	Verbose bool     // If set, verbosely logs the assembler actions.
 	Opcode  []Opcode // List of generated opcodes.
+	Data    []uint32 // Data words to append.
 
 	predefine map[string]string   // Predefines
 	Label     map[string]int      // Map of jump labels to opcode indexes.
@@ -468,6 +469,7 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 
 	prog = &Program{
 		Opcodes: slices.Clone(asm.Opcode),
+		Data:    asm.Data,
 	}
 
 	return
@@ -627,6 +629,21 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	}
 
 	switch words[0] {
+	case ".dw":
+		if len(words) != 2 {
+			err = ErrDwSyntax
+			return
+		}
+		var value uint32
+		value, err = asm.valueOf(words[1])
+		if err != nil {
+			return
+		}
+		if value > 0x3_fff_ffff {
+			err = ErrDwInvalid
+			return
+		}
+		asm.Data = append(asm.Data, value)
 	case "if":
 		if len(words) < 2 {
 			err = ErrOpcodeMissing
