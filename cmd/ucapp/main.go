@@ -50,7 +50,7 @@ func main() {
 	flag.StringVar(&compile, "c", "", ".uc file to compile")
 	flag.StringVar(&depot_path, "D", "", "Depot path (default is none)")
 	flag.IntVar(&drum, "d", 0, "Drum to use (default is 0)")
-	flag.IntVar(&ring, "r", 255, "Ring to use (default is 255)")
+	flag.IntVar(&ring, "r", 0, "Ring to use (default is 0)")
 	flag.BoolVar(&save, "s", false, "Save program to ring, do not execute")
 	flag.BoolVar(&exec, "x", false, "Save program to ring, then execute")
 	flag.StringVar(&input, "i", "-", "Tape input")
