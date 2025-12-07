@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	capp_io "github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 )
 
 // selectDrum selects a drum of the current depot.
-func selectDrum(depot *capp_io.Depot, drum uint32) (err error) {
+func selectDrum(depot *sio.Depot, drum uint32) (err error) {
 	if drum > 0xff_ffff {
 		err = fmt.Errorf("invalid drum ID 0x%06x (must be <= 0xffffff)", drum)
 		return
@@ -20,7 +20,7 @@ func selectDrum(depot *capp_io.Depot, drum uint32) (err error) {
 	resp := make(chan uint32, 1)
 	defer close(resp)
 
-	depot.Alert(capp_io.DEPOT_OP_SELECT|drum, resp)
+	depot.Alert(sio.DEPOT_OP_SELECT|drum, resp)
 	value := <-resp
 	if value == ^uint32(0) {
 		err = fmt.Errorf("drum 0x%06x does not exist", drum)
@@ -31,18 +31,18 @@ func selectDrum(depot *capp_io.Depot, drum uint32) (err error) {
 }
 
 // selectRing selects a ring of the current depot's drum, and rewinds it read index.
-func selectRing(depot *capp_io.Depot, ring uint8) (err error) {
+func selectRing(depot *sio.Depot, ring uint8) (err error) {
 	resp := make(chan uint32, 1)
 	defer close(resp)
 
-	depot.Alert(capp_io.DEPOT_OP_DRUM|capp_io.DRUM_OP_SELECT|uint32(ring), resp)
+	depot.Alert(sio.DEPOT_OP_DRUM|sio.DRUM_OP_SELECT|uint32(ring), resp)
 	value := <-resp
 	if value == ^uint32(0) {
 		err = fmt.Errorf("ring 0x%02x does not exist", ring)
 		return
 	}
 
-	depot.Alert(capp_io.DEPOT_OP_DRUM|capp_io.DRUM_OP_RING|capp_io.RING_OP_REWIND_WRITE, resp)
+	depot.Alert(sio.DEPOT_OP_DRUM|sio.DRUM_OP_RING|sio.RING_OP_REWIND_WRITE, resp)
 	value = <-resp
 	if value == ^uint32(0) {
 		err = fmt.Errorf("ring 0x%02x cannot be written to", ring)
@@ -117,7 +117,7 @@ func (cmd *CliDepotSave) Run(opt *Options) (err error) {
 		var content []byte
 		content, err = io.ReadAll(cmd.Source)
 		for _, value := range content {
-			capp_io.SendAsUint8(&opt.Emulator.Depot, value)
+			sio.SendAsUint8(&opt.Emulator.Depot, value)
 		}
 	} else {
 		err = opt.Emulator.Depot.Save(cmd.Name, cmd.Source)

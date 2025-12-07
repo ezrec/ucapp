@@ -1,4 +1,4 @@
-# I/O Peripherals
+# Serial I/O Peripherals
 
 The μCAPP can access a number of I/O peripherals, which are mapped as follows:
 
