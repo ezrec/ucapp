@@ -95,6 +95,10 @@ func (drum *Drum) Unmarshal(filesys fs.FS) (err error) {
 // XX.ring for each ring.
 func (drum *Drum) Marshal(filesys CreateFS) (err error) {
 	for index, ring := range drum.Rings {
+		if !ring.Dirty() {
+			continue
+		}
+
 		ring_name := fmt.Sprintf("%02x.ring", index)
 		var ring_file io.WriteCloser
 		ring_file, err = filesys.Create(ring_name)
@@ -172,4 +176,15 @@ func (dc *Drum) Alert(request uint32, response chan uint32) {
 	case DRUM_OP_RING:
 		dc.Ring.Alert(request, response)
 	}
+}
+
+// Dirty returns true if any ring in the drum has unflushed changes.
+func (dc *Drum) Dirty() bool {
+	for _, ring := range dc.Rings {
+		if ring.Dirty() {
+			return true
+		}
+	}
+
+	return false
 }
