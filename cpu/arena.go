@@ -8,6 +8,7 @@ const (
 	ARENA_IO   = 0x0_000_0000 // Input/Output.
 	ARENA_DATA = 0x4_000_0000 // User data.
 	ARENA_CODE = 0x8_000_0000 // User code.
+	ARENA_OS   = 0xc_000_0000 // OS area
 
 	CAPP_FREE = 0xf_fff_ffff // Unallocated memory
 )
