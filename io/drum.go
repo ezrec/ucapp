@@ -54,7 +54,7 @@ func (drum *Drum) Rewind() {
 }
 
 // Unmarshal loads drum data from a file system by scanning for ring files
-// matching the pattern XX.ring (2 hex digits).
+// matching the pattern XX.ur (2 hex digits).
 func (drum *Drum) Unmarshal(filesys fs.FS) (err error) {
 	drum.Rings = map[uint8](*Ring){}
 
@@ -63,7 +63,7 @@ func (drum *Drum) Unmarshal(filesys fs.FS) (err error) {
 			return
 		}
 		name := d.Name()
-		ok, err := regexp.MatchString("(?i)[0-9a-f][0-9a-f].ring", name)
+		ok, err := regexp.MatchString("(?i)[0-9a-f][0-9a-f].ur", name)
 		if err != nil {
 			return
 		}
@@ -93,14 +93,14 @@ func (drum *Drum) Unmarshal(filesys fs.FS) (err error) {
 }
 
 // Marshal writes the drum's rings to a file system, creating files named
-// XX.ring for each ring.
+// XX.ur for each ring.
 func (drum *Drum) Marshal(filesys CreateFS) (err error) {
 	for index, ring := range drum.Rings {
 		if !ring.Dirty() {
 			continue
 		}
 
-		ring_name := fmt.Sprintf("%02x.ring", index)
+		ring_name := fmt.Sprintf("%02x.ur", index)
 		var ring_file io.WriteCloser
 		ring_file, err = filesys.Create(ring_name)
 		if err != nil {
