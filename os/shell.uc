@@ -6,6 +6,12 @@
 ; after the name of the command.
 
 PROMPT:
+; Dump temporary
+list of CAPP_FREE
+list all
+fetch temp
+list not
+write list CAPP_FREE
 ; Print the shell prompt.
 list of CAPP_FREE
 list all
@@ -34,9 +40,11 @@ write first 0
 fetch tape 0xff
 list not
 if none?
++ exit  ; FIXME: how to best exit?
 + jump NEXT_LETTER
 if eq? first ' ' ; command complete?
 - if eq? first '\n' ; command complete?
+- if eq? first '\r' ; command complete?
 - alu shl r0 8
 - write first r0 0xffffff00
 - alu set r0 first
@@ -46,6 +54,7 @@ if eq? first ' ' ; command complete?
 write first 0 0xffffff00
 NEXT_COMMAND:
 if eq? first '\n' ; command complete?
+- if eq? first '\r' ; command complete?
 - fetch tape 0xff
 - list not
 - if none?
@@ -65,8 +74,7 @@ list of CAPP_FREE
 list all
 fetch depot
 list not
-alu shl r0 8
-list only r0 0xffffff00
+list only r0 0x00ffffff
 if none?
 + list all
 + list write CAPP_FREE
@@ -75,20 +83,22 @@ if none?
 ; Switch to ring for command
 alu set r0 first
 list write CAPP_FREE
-alu and r0 0xff
+alu shr r0 24
 alu or r0 $(DEPOT_OP_DRUM | DEPOT_OP_SELECT)
 alert depot r0
 await depot r0
 if eq? r0 ~0
 + jump PROMPT
+alert depot $(DEPOT_OP_DRUM | DRUM_OP_RING | RING_OP_REWIND_READ)
+await depot
 
 ; Load regs with boot program
-alu set r0 0x15cc ; list of ~0 ~0
+alu set r0 0x15cc ; list of 0 0
 alu set r1 0x11cc ; list all
 alu set r2 0x17dd ; list write ~0
 alu set r3 0x181d ; fetch depot
 alu set r4 0x12cc ; list not
-alu set r5 0x000c ; alu set ip 0
+alu set r5 0x006c ; alu set ip 0
 
 ; Switch IP to boot-from-registers
 alu set ip IP_MODE_REG
@@ -97,19 +107,24 @@ alu set ip IP_MODE_REG
 Convert8To6:
 ; Convert 4x8 bit command in r0 to 6-bit encoding
 alu set r2 0
+alu set stack mask
+alu set stack match
 list of ARENA_DATA ARENA_MASK
 CONVERT:
 if eq? r0 0
 - list all
-- list only r0 0xff
+- alu set r1 r0
+- alu shr r1 24
+- list only r1 0xff
 - alu set r1 first
-- alu shr r1 8
-- alu and r1 0x3f
-- alu shl r2 6
+- alu shl r1 10
+- alu and r1 0x00fc0000
+- alu shr r2 6
 - alu or r2 r1
-- alu shr r0 8
+- alu shl r0 8
 - jump CONVERT
 alu set r0 r2
+list of stack stack
 return
 
 .dw $((0 << 8) | 0)
@@ -155,4 +170,29 @@ return
 .dw $((40 << 8) | 'X')
 .dw $((41 << 8) | 'Y')
 .dw $((42 << 8) | 'Z')
-
+.dw $((17 << 8) | 'a')
+.dw $((18 << 8) | 'b')
+.dw $((19 << 8) | 'c')
+.dw $((20 << 8) | 'd')
+.dw $((21 << 8) | 'e')
+.dw $((22 << 8) | 'f')
+.dw $((23 << 8) | 'g')
+.dw $((24 << 8) | 'h')
+.dw $((25 << 8) | 'i')
+.dw $((26 << 8) | 'j')
+.dw $((27 << 8) | 'k')
+.dw $((28 << 8) | 'l')
+.dw $((29 << 8) | 'm')
+.dw $((30 << 8) | 'n')
+.dw $((31 << 8) | 'o')
+.dw $((32 << 8) | 'p')
+.dw $((33 << 8) | 'q')
+.dw $((34 << 8) | 'r')
+.dw $((35 << 8) | 's')
+.dw $((36 << 8) | 't')
+.dw $((37 << 8) | 'u')
+.dw $((38 << 8) | 'v')
+.dw $((39 << 8) | 'w')
+.dw $((40 << 8) | 'x')
+.dw $((41 << 8) | 'y')
+.dw $((42 << 8) | 'z')
