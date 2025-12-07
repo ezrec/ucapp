@@ -146,6 +146,16 @@ func (depot *Depot) Alert(request uint32, response chan uint32) {
 	}
 }
 
+// Save a data stream into the currently selected drum.
+// Save allocates a dirent in the drum's ring and saves the content.
+func (depot *Depot) Save(name string, content io.Reader) (err error) {
+	if depot.Drum == nil {
+		return fmt.Errorf("drum not selected for load")
+	}
+
+	return depot.Drum.Save(name, content)
+}
+
 // Dirty returns true if any drum in the depot has unflushed changes.
 func (depot *Depot) Dirty() bool {
 	for _, drum := range depot.Drums {
