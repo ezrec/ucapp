@@ -2,7 +2,7 @@
 // It includes various channel types for bit-level I/O operations including
 // temporary storage (Temp), persistent drum/ring storage (Depot, Drum, Ring),
 // sequential I/O (Tape), and ROM.
-package io
+package sio
 
 import (
 	"iter"

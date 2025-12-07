@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ezrec/ucapp/capp"
-	"github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 )
 
 type dummyIo struct {
@@ -26,7 +26,7 @@ func (di *dummyIo) Alert(value uint32, response chan uint32) {
 	di.response <- value
 }
 
-var _ io.Channel = &dummyIo{}
+var _ sio.Channel = &dummyIo{}
 
 func TestCpu_String(t *testing.T) {
 	assert := assert.New(t)
@@ -64,7 +64,7 @@ func TestCpu_Reset(t *testing.T) {
 	cpu.Ticks = 100
 	cpu.Power = 500
 
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
 	err := cpu.Reset(CHANNEL_ID_MONITOR)
@@ -90,7 +90,7 @@ func TestCpu_GetChannel(t *testing.T) {
 	assert.Error(err)
 	assert.ErrorIs(err, ErrChannelInvalid)
 
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
 	ch, resp, err := cpu.GetChannel(CHANNEL_ID_TAPE)
@@ -223,7 +223,7 @@ func TestCpu_Tick_WithTrap(t *testing.T) {
 	cpu.Register[0] = 0x12345678
 	cpu.Ip = IP_MODE_REG
 
-	monitor := &io.Tape{}
+	monitor := &sio.Tape{}
 	cpu.SetChannel(CHANNEL_ID_MONITOR, monitor)
 	cpu.channel[CHANNEL_ID_MONITOR].Response <- 1
 
@@ -608,7 +608,7 @@ func TestCpu_Execute_IO_Fetch(t *testing.T) {
 	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	tape.Input = bytes.NewReader([]byte{0xFF})
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
@@ -630,7 +630,7 @@ func TestCpu_Execute_IO_Store(t *testing.T) {
 	cpu.Ip = 0
 
 	buf := &bytes.Buffer{}
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	tape.Output = buf
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
@@ -743,7 +743,7 @@ func TestCpu_Execute_IO_Await_InvalidTarget(t *testing.T) {
 	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
 	code := Code{Word: uint16((uint16(OP_IO) << 11) | (uint16(IO_OP_AWAIT) << 8) | (uint16(CHANNEL_ID_TAPE) << 4) | 0xE)}
@@ -772,7 +772,7 @@ func TestCpu_Execute_IO_InvalidOp(t *testing.T) {
 	defer cpu.Close()
 	cpu.Ip = 0
 
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
 	code := Code{Word: uint16((uint16(OP_IO) << 11) | (0x7 << 8) | (uint16(CHANNEL_ID_TAPE) << 4))}
@@ -903,7 +903,7 @@ func TestCpu_listInput(t *testing.T) {
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO, 0xffffffff)
 
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	tape.Input = bytes.NewReader([]byte{0xAB})
 
 	err := cpu.listInput(tape, 0xFF)
@@ -915,7 +915,7 @@ func TestCpu_listInput_ZeroMask(t *testing.T) {
 
 	cpu := NewCpu(64)
 	defer cpu.Close()
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 
 	err := cpu.listInput(tape, 0)
 	assert.NoError(err)
@@ -933,7 +933,7 @@ func TestCpu_listOutput(t *testing.T) {
 	cpu.Capp.Action(capp.LIST_NOT, 0, 0)
 
 	buf := &bytes.Buffer{}
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 	tape.Output = buf
 
 	err := cpu.listOutput(tape, 0xFF)
@@ -946,7 +946,7 @@ func TestCpu_listOutput_ZeroMask(t *testing.T) {
 
 	cpu := NewCpu(64)
 	defer cpu.Close()
-	tape := &io.Tape{}
+	tape := &sio.Tape{}
 
 	err := cpu.listOutput(tape, 0)
 	assert.NoError(err)

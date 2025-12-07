@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/ezrec/ucapp/cpu"
-	capp_io "github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 )
 
 type CliRun struct {
@@ -24,13 +24,13 @@ func (cr *CliRun) Run(opt *Options) (err error) {
 	defer close(resp)
 
 	// Select active ring
-	emu.Depot.Alert(uint32(capp_io.DEPOT_OP_SELECT|cr.Drum), resp)
+	emu.Depot.Alert(uint32(sio.DEPOT_OP_SELECT|cr.Drum), resp)
 	var value uint32
 	value = <-resp
 	if value == ^uint32(0) {
 		log.Fatalf("drum %06x.drum missing: 0x%08x", cr.Drum, value)
 	}
-	emu.Depot.Alert(capp_io.DEPOT_OP_DRUM|capp_io.DRUM_OP_SELECT|uint32(cr.Ring), resp)
+	emu.Depot.Alert(sio.DEPOT_OP_DRUM|sio.DRUM_OP_SELECT|uint32(cr.Ring), resp)
 	value = <-resp
 	if value == ^uint32(0) {
 		log.Fatalf("ring %06x.drum/%02x.ring missing: 0x%08x", cr.Drum, cr.Ring, value)
@@ -80,7 +80,7 @@ func (cr *CliRun) Run(opt *Options) (err error) {
 			log.Printf("stack: 0x%08x", val)
 		}
 
-		for val := range capp_io.ReceiveAsUint8(&emu.Temporary) {
+		for val := range sio.ReceiveAsUint8(&emu.Temporary) {
 			log.Printf("temp: 0x%02x", val)
 		}
 	}

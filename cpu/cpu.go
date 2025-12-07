@@ -9,11 +9,11 @@ import (
 	"math/bits"
 
 	"github.com/ezrec/ucapp/capp"
-	"github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 )
 
 // Channel is an I/O channel interface.
-type Channel io.Channel
+type Channel sio.Channel
 
 // Instruction Pointer execution mode constants.
 // The upper 2 bits of the IP determine the source for instruction fetch.

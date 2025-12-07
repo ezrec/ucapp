@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/ezrec/ucapp/cpu"
-	capp_io "github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 )
 
 type CliBuild struct {
@@ -42,10 +42,10 @@ func (cb *CliBuild) Run(opt *Options) (err error) {
 	}
 	defer output.Close()
 
-	ring := &capp_io.Ring{}
+	ring := &sio.Ring{}
 	ring.Rewind()
 	for _, item := range prog.Binary() {
-		capp_io.SendAsUint32(ring, item)
+		sio.SendAsUint32(ring, item)
 	}
 
 	err = ring.Marshal(output)

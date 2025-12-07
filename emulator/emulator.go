@@ -10,7 +10,7 @@ import (
 
 	"github.com/ezrec/ucapp/cpu"
 	"github.com/ezrec/ucapp/internal"
-	"github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 )
 
 const (
@@ -29,10 +29,10 @@ type Emulator struct {
 	*cpu.Cpu              // Reference to the CPU simulation.
 	Program  *cpu.Program // Reference to the currently running program listing.
 
-	Temporary io.Temporary // Temporary buffer IO channel.
-	Tape      io.Tape      // Tape IO channel.
-	Depot     io.Depot     // Depot (Drum and Ring) IO channel.
-	Rom       io.Rom       // ROM IO channel.
+	Temporary sio.Temporary // Temporary buffer IO channel.
+	Tape      sio.Tape      // Tape IO channel.
+	Depot     sio.Depot     // Depot (Drum and Ring) IO channel.
+	Rom       sio.Rom       // ROM IO channel.
 
 	TrapRequest chan uint32
 }
@@ -53,7 +53,7 @@ func NewEmulator() (emu *Emulator) {
 
 	// Map the trap channel
 	_, emu.TrapRequest, _ = emu.Cpu.GetChannel(cpu.CHANNEL_ID_MONITOR)
-	emu.Rom.Alert(io.ROM_OP_TRAP, emu.TrapRequest)
+	emu.Rom.Alert(sio.ROM_OP_TRAP, emu.TrapRequest)
 
 	return
 }

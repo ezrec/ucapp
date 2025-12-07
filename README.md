@@ -64,6 +64,6 @@ See [capp/README.md](capp/README.md)
 
 See [cpu/README.md](cpu/README.md)
 
-### I/O Peripherals
+### Serial I/O Peripherals
 
-See [io/README.md](io/README.md)
+See [sio/README.md](sio/README.md)

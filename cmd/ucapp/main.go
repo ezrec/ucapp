@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/ezrec/ucapp/emulator"
-	capp_io "github.com/ezrec/ucapp/io"
+	"github.com/ezrec/ucapp/sio"
 
 	"github.com/alecthomas/kong"
 )
@@ -27,7 +27,7 @@ func (cf *createFS) Create(name string) (file io.WriteCloser, err error) {
 	return
 }
 
-func (cf *createFS) Sub(name string) (sub capp_io.CreateFS, err error) {
+func (cf *createFS) Sub(name string) (sub sio.CreateFS, err error) {
 	subroot, err := cf.Root.OpenRoot(name)
 	if err != nil {
 		return
