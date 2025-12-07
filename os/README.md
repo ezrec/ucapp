@@ -11,18 +11,26 @@ A `<title>` is a 4-letter name (6-bit ASCII) for the drum.
 A `<drum>` is a 6-letter hexadecimal number for the drum.
 A `<name>` is a 4-letter name for a ring.
 
+### Implemented
+
+```
+LIST                   ; Shows ring names for the current drum.
+```
+
+### Unimplemented
+
 ```
 DRUM                   ; Shows current drum status
+LIST <title>           ; Shows ring names for a specific drum.
 BIND <title> <drum>    ; Connect a drum to the session
-LIST <title>           ; Shows drum ring names
 DROP <title>           ; Disconnect a drum from the session
-TEST <title>[.<name>]  ; Test that a drum [or ring] can run.
-EDIT <title>.<name>    ; Edit & debug a ring.
+TEST <title>[:<name>]  ; Test that a drum [or ring] can run.
+EDIT <title>:<name>    ; Edit & debug a ring.
 SPIN <title>           ; Spin the drum.
 STOP <title>           ; Stop a drum.
-COPY <src.name> <dst.name> ; Copy ring to drum, if space is available.
-DELE <title.name>      ; Delete ring from drum index.
-ALLO <title.name>      ; Allocate a ring, and name it.
+COPY <src:name> <dst:name> ; Copy ring to drum, if space is available.
+DELE <title:name>      ; Delete ring from drum index.
+ALLO <title:name>      ; Allocate a ring, and name it.
 EXIT                   ; Leave session.
 ```
 
@@ -45,20 +53,18 @@ Current power usage is 290.961 watts, out of 500.000 watts available.
 
 ```
 APMOS) LIST OS
-Title Ring  Status
-DRUM  1     WATTS 0.001
-BIND  2     WATTS 0.001
-LIST  3     WATTS 0.001
-DROP  4     WATTS 0.001
-TEST  5     WATTS 0.001
-EDIT  6     WATTS 0.001
-SPIN  7     WATTS 0.001
-STOP  8     WATTS 0.001
-EXIT  9     WATTS 0.001
-COPY  10    WATTS 0.001
-DELE  12    WATTS 0.001
-????  126   CORRUPTED
-CLI   127   WATTS 10.281
+Title Ring
+DRUM  1
+BIND  2
+LIST  3
+DROP  4
+TEST  5
+EDIT  6
+SPIN  7
+STOP  8
+EXIT  9
+COPY  10
+DELE  12
 ```
 
 ```
