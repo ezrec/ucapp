@@ -145,3 +145,14 @@ func (depot *Depot) Alert(request uint32, response chan uint32) {
 		depot.Drum.Alert(request, response)
 	}
 }
+
+// Dirty returns true if any drum in the depot has unflushed changes.
+func (depot *Depot) Dirty() bool {
+	for _, drum := range depot.Drums {
+		if drum.Dirty() {
+			return true
+		}
+	}
+
+	return false
+}

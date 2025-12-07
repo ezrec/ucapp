@@ -64,10 +64,10 @@ func TestDrum(t *testing.T) {
 	SendAsUint8(drum, 0x0b)
 
 	expecting := map[uint8](*Ring){
-		0: &Ring{Capacity: RING_DEFAULT_CAPACITY, WriteIndex: 24, Data: slum(8, 0x08, 0x19, 0x2a)},
+		0: &Ring{Capacity: RING_DEFAULT_CAPACITY, WriteIndex: 24, Data: slum(8, 0x08, 0x19, 0x2a), isDirty: true},
 		1: &Ring{Capacity: 64, Data: slum(8)},
 		2: &Ring{Capacity: RING_DEFAULT_CAPACITY, Data: []uint8{}},
-		3: &Ring{Capacity: 64, WriteIndex: 48, ReadIndex: 24, Data: slum(8, 1, 2, 3, 4, 7, 11)},
+		3: &Ring{Capacity: 64, WriteIndex: 48, ReadIndex: 24, Data: slum(8, 1, 2, 3, 4, 7, 11), isDirty: true},
 	}
 
 	assert.Equal(expecting, drum.Rings)

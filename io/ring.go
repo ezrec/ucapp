@@ -38,6 +38,8 @@ type Ring struct {
 	WriteIndex int
 	ReadIndex  int
 	Data       []uint8
+
+	isDirty bool
 }
 
 var _ Channel = (*Ring)(nil)
@@ -127,7 +129,10 @@ func (ring *Ring) Send(value bool) (err error) {
 	} else {
 		bitmask &= ^(1 << (ring.WriteIndex % 8))
 	}
-	ring.Data[ring.WriteIndex/8] = bitmask
+	if bitmask != ring.Data[ring.WriteIndex/8] {
+		ring.isDirty = true
+		ring.Data[ring.WriteIndex/8] = bitmask
+	}
 
 	ring.WriteIndex++
 
@@ -151,4 +156,9 @@ func (ring *Ring) Alert(request uint32, response chan uint32) {
 	default:
 		response <- ^uint32(0)
 	}
+}
+
+// Dirty returns true if the ring has unflushed changes
+func (ring *Ring) Dirty() bool {
+	return ring.isDirty
 }
