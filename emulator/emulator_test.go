@@ -100,7 +100,7 @@ func TestEmulatorRegisters(t *testing.T) {
 	defer emu.Close()
 
 	program := []string{
-		"list of ARENA_FREE ARENA_MASK",
+		"list of CAPP_FREE",
 		"list all",
 		"fetch tape 0xffff",
 		"list not",
@@ -251,7 +251,7 @@ func TestEmulatorSystemMacro(t *testing.T) {
 	defer emu.Close()
 
 	program := []string{
-		"list of ARENA_FREE ARENA_MASK",
+		"list of CAPP_FREE",
 		"list all",
 		"fetch tape 0xffff",
 		"list not",
@@ -288,7 +288,7 @@ func TestEmulatorTemp(t *testing.T) {
 	defer emu.Close()
 
 	program := []string{
-		"list of ARENA_FREE ARENA_MASK",
+		"list of CAPP_FREE",
 		"list all",
 		"fetch tape 0xffff",
 		"list not",
@@ -296,7 +296,7 @@ func TestEmulatorTemp(t *testing.T) {
 		"list of ARENA_IO ARENA_MASK",
 		"store temp 0xffff", // store to temp
 		"list not",
-		"write list ARENA_FREE ARENA_MASK",
+		"write list CAPP_FREE",
 		"fetch temp 0xffff",
 		"list not",
 		"write list 0x9000 0xf000",

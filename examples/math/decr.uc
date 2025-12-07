@@ -4,7 +4,7 @@
 
 More:
 ; Load tape as lower 8 bits of newly allocated CAPP
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 fetch tape 0xff
 list not

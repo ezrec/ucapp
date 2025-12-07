@@ -23,7 +23,7 @@ func TestAssembler(t *testing.T) {
 	assert.Equal(fmt.Sprintf("%#v", ARENA_MASK), asm.Equate["ARENA_MASK"])
 	assert.Equal(fmt.Sprintf("%#v", ARENA_CODE), asm.Equate["ARENA_CODE"])
 	assert.Equal(fmt.Sprintf("%#v", ARENA_IO), asm.Equate["ARENA_IO"])
-	assert.Equal(fmt.Sprintf("%#v", ARENA_FREE), asm.Equate["ARENA_FREE"])
+	assert.Equal(fmt.Sprintf("%#v", CAPP_FREE), asm.Equate["CAPP_FREE"])
 }
 
 func opEqual(t *testing.T, expected, opcodes []Opcode) {

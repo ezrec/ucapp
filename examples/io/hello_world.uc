@@ -1,6 +1,6 @@
 ; Load the string 'Hello World' into the tape
 
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 write first 'H'
 list next
