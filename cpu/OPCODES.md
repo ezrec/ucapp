@@ -94,10 +94,14 @@ if gt? A B
 if le? A B
 if ge? A B
 
-    00 - == equals
-    01 - != not equal
-    10 - <  less than
-    11 - <= less or equal
+    000 - == equals
+    001 - <  less than
+    010 - <= less or equal
+    011 - RESERVED
+    100 - != not equal
+    101 - >= greater than or equal
+    110 - >  greater than
+    111 - RESERVED
 
 ## CAPP Ops
 
@@ -135,7 +139,7 @@ AAAA: Arg IR
 IIII: Immediate value to shift in
 ```
 .alu.OP R V           16 - cc 000 aaa 0rrr VVVV
-.if.OP A B            18 - cc 001 0ii AAAA BBBB
+.if.OP A B            18 - cc 001 iii AAAA BBBB
 .list.OP V M          16 - cc 010 lll VVVV MMMM
 .io OP CHANNEL ARG    16 - cc 011 0oo 0CCC AAAA
 .imm 0xNNN            16 - aa aaa aaa aaaa aaaa  imm = (imm << 16)

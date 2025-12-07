@@ -500,6 +500,10 @@ func (cpu *Cpu) Execute(code Code) (err error) {
 			cpu.Cond = a < b
 		case COND_OP_LE:
 			cpu.Cond = a <= b
+		case COND_OP_GT:
+			cpu.Cond = a > b
+		case COND_OP_GE:
+			cpu.Cond = a >= b
 		default:
 			err = errors.Join(ErrOpcodeCond, ErrOpcodeOp)
 			return

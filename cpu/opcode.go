@@ -47,9 +47,11 @@ type CodeCondOp int
 //go:generate go tool stringer -linecomment -type=CodeCondOp
 const (
 	COND_OP_EQ = CodeCondOp(0) // eq
-	COND_OP_NE = CodeCondOp(1) // ne
-	COND_OP_LT = CodeCondOp(2) // lt
-	COND_OP_LE = CodeCondOp(3) // le
+	COND_OP_LT = CodeCondOp(1) // lt
+	COND_OP_LE = CodeCondOp(2) // le
+	COND_OP_NE = CodeCondOp(4) // ne
+	COND_OP_GE = CodeCondOp(5) // ge
+	COND_OP_GT = CodeCondOp(6) // gt
 )
 
 // CodeCappOp is a CAPP operation type.
