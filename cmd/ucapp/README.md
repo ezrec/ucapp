@@ -1,40 +1,38 @@
 # μCAPP Command Line Tool
 
-## Compile and Run
+## Compile
 
-`ucapp -c <somefile.uc>`
+`ucapp build somefile.uc`
 
-## Compile and save to a Ring
+## Save a file to a drum by name.
 
-`ucapp -c <somefile.uc> -s -r <somefile.ring>`
+`ucapp depot save --drum 0x123456 QUX somefile.ur`
 
-## Load a ring into the CAPP and execute
+## Delete a file by name on a drum
 
-`ucapp -r <somefile.ring>`
+`ucapp depot delete --drum 0x123456 QUX`
 
-## Query a ring's attributes
+## List all files in the depot
 
-`ucapp -r <somefile.ring>` -q
+`ucapp depot list`
 
-## Add a ring to a drum
+## List all files on a specific drum
 
-`ucapp -d <somefile.drum> -a <index> -r <somefile.ring>
+`ucapp depot list --drum 0x123456`
 
-NOTE: <somefile.drum> must have a format compatible to the <somefile.ring>
+## Save a file to a drum directly
 
-## Execute a drum
+`ucapp depot save --drum 0x123456 0xAB somefile.ur`
 
-`ucapp -d <somefile.drum>`
+## Execute a drum in the depot
 
-## Query a drum's attributes
+`ucapp run --drum 0x123456`
 
-`ucapp -d <somefile.drum>` -q
+## Execute a ring on a drum in the depot
 
-## Execute a drum at a specific ring index
+`ucapp run --drum 0x123456 --ring 0xAB`
 
-`ucapp -d <somefile.drum> -a <index>`
+## Execute a drum with a specific input and output tape
 
-## Execute a drum with an input and output tape
-
-`ucapp -d <somefile.drum> -i <in.tape> -o <out.tape>`
+`ucapp run --drum 0x123456 --input <in.tape> --output <out.tape>`
 

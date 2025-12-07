@@ -3,15 +3,15 @@
 package main
 
 import (
-	"flag"
 	"io"
 	"io/fs"
 	"log"
 	"os"
 
-	"github.com/ezrec/ucapp/cpu"
 	"github.com/ezrec/ucapp/emulator"
 	capp_io "github.com/ezrec/ucapp/io"
+
+	"github.com/alecthomas/kong"
 )
 
 type createFS struct {
@@ -36,193 +36,57 @@ func (cf *createFS) Sub(name string) (sub capp_io.CreateFS, err error) {
 	return
 }
 
+type Cli struct {
+	Verbose   bool   `help:"Enter vebose mode"`
+	DepotPath string `help:"Path to the depot to use." name:"depot" default:"depot/"`
+
+	Build CliBuild `cmd:"" help:"Build a ucapp program"`
+	Depot CliDepot `cmd:"" help:"Manage the drum depot"`
+	Run   CliRun   `cmd:"" help:"Run a ucapp program in the emulator"`
+}
+
+type Options struct {
+	Verbose bool
+
+	Emulator *emulator.Emulator
+}
+
 func main() {
-	var compile string
-	var depot_path string
-	var drum int
-	var ring int
-	var save bool
-	var exec bool
-	var input string
-	var output string
-	var verbose bool
+	var err error
 
-	flag.StringVar(&compile, "c", "", ".uc file to compile")
-	flag.StringVar(&depot_path, "D", "", "Depot path (default is none)")
-	flag.IntVar(&drum, "d", 0, "Drum to use (default is 0)")
-	flag.IntVar(&ring, "r", 0, "Ring to use (default is 0)")
-	flag.BoolVar(&save, "s", false, "Save program to ring, do not execute")
-	flag.BoolVar(&exec, "x", false, "Save program to ring, then execute")
-	flag.StringVar(&input, "i", "-", "Tape input")
-	flag.StringVar(&output, "o", "-", "Tape output")
-	flag.BoolVar(&verbose, "v", false, "Verbose mode")
-
-	flag.Parse()
-
-	if flag.NArg() != 0 {
-		log.Fatalf("%v: Unknown arguments: %v", os.Args[0], flag.Args())
-	}
-
-	prog := &cpu.Program{}
+	var cli Cli
+	ctx := kong.Parse(&cli)
 
 	emu := emulator.NewEmulator()
 	defer emu.Close()
 
-	emu.Verbose = verbose
-
-	resp := make(chan uint32, 1)
-	defer close(resp)
-
-	boot := cpu.CHANNEL_ID_TEMP
+	emu.Verbose = cli.Verbose
 
 	var root *os.Root
-	var err error
-
-	if len(depot_path) != 0 {
+	if len(cli.DepotPath) != 0 {
 		// Unmarshal the depot.
-		root, err = os.OpenRoot(depot_path)
+		root, err = os.OpenRoot(cli.DepotPath)
 		if err != nil {
-			log.Fatalf("depot '%v', %v", depot_path, err)
+			log.Fatalf("depot '%v', %v", cli.DepotPath, err)
 		}
 		emu.Depot.Unmarshal(root.FS())
-
-		if _, ok := emu.Depot.Drums[uint32(drum)]; !ok {
-			if emu.Depot.Drums == nil {
-				emu.Depot.Drums = map[uint32](*capp_io.Drum){}
-			}
-			emu.Depot.Drums[uint32(drum)] = &capp_io.Drum{}
-		}
-
-		if verbose {
-			for n, drum := range emu.Depot.Drums {
-				log.Printf("drum %06x:", n)
-				for i, ring := range drum.Rings {
-					log.Printf("  ring %02x: %v bytes", i, len(ring.Data))
-				}
-			}
-		}
-
-		// Select active ring
-		emu.Depot.Alert(uint32(capp_io.DEPOT_OP_SELECT|drum), resp)
-		var value uint32
-		value = <-resp
-		if value == ^uint32(0) {
-			log.Fatalf("drum %v/%06x.drum missing: 0x%08x", depot_path, drum, value)
-		}
-		emu.Depot.Alert(uint32(capp_io.DEPOT_OP_DRUM|capp_io.DRUM_OP_SELECT|ring), resp)
-		value = <-resp
-		if value == ^uint32(0) {
-			log.Fatalf("ring %v/%06x.drum/%02x.ring missing: 0x%08x", depot_path, drum, ring, value)
-		}
-
-		if verbose {
-			log.Printf("depot: drum %06x, ring %02x", drum, ring)
-		}
-
-		boot = cpu.CHANNEL_ID_DEPOT
 	}
 
-	depot_changed := false
-
-	// Compile a new instruction stream.
-	if len(compile) != 0 {
-		inf, err := os.Open(compile)
-		if err != nil {
-			log.Fatalf("%v: %v", compile, err)
-		}
-		defer inf.Close()
-
-		asm := &cpu.Assembler{}
-		for define, value := range emu.Defines() {
-			asm.Predefine(define, value)
-		}
-		prog, err = asm.Parse(inf)
-		if err != nil {
-			log.Fatalf("%v: %v", compile, err)
-		}
-
-		emu.Program = prog
-
-		// Only save.
-		if save || exec {
-			emu.Depot.Alert(uint32(capp_io.DEPOT_OP_DRUM|capp_io.DRUM_OP_RING|capp_io.RING_OP_REWIND_WRITE), resp)
-			value := <-resp
-			if value == ^uint32(0) {
-				log.Fatalf("ring %v/%x.drum/%x.ring corrupted", depot_path, drum, ring)
-			}
-			for _, item := range prog.Binary() {
-				capp_io.SendAsUint32(&emu.Depot, item)
-			}
-
-			depot_changed = true
-		} else {
-			boot = cpu.CHANNEL_ID_MONITOR
-		}
+	opt := Options{
+		Verbose:  cli.Verbose,
+		Emulator: emu,
 	}
 
-	if !save {
-		if input == "-" {
-			emu.Tape.Input = os.Stdin
-		} else {
-			inf, err := os.Open(input)
-			if err != nil {
-				log.Fatalf("%v: %v", input, err)
-			}
-			defer inf.Close()
-			emu.Tape.Input = inf
-		}
-
-		if output == "-" {
-			emu.Tape.Output = os.Stdout
-		} else {
-			ouf, err := os.Create(output)
-			if err != nil {
-				log.Fatalf("%v: %v", output, err)
-			}
-			defer ouf.Close()
-			emu.Tape.Output = ouf
-		}
-
-		if verbose {
-			log.Printf("emu: reset, boot from %v", boot)
-		}
-
-		err = emu.Reset(boot)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		depot_changed = true
-
-		for done, err := emu.Tick(); !done; done, err = emu.Tick() {
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		if verbose {
-			for n := range 6 {
-				log.Printf("r%v: 0x%08x", n, emu.Cpu.Register[n])
-			}
-			for !emu.Cpu.Stack.Empty() {
-				val, _ := emu.Cpu.Stack.Pop()
-				log.Printf("stack: 0x%08x", val)
-			}
-
-			for val := range capp_io.ReceiveAsUint8(&emu.Temporary) {
-				log.Printf("temp: 0x%02x", val)
-			}
-		}
+	err = ctx.Run(&opt)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if len(depot_path) > 0 && depot_changed {
-		if verbose {
-			log.Printf("saving depot state")
-		}
+	if len(cli.DepotPath) != 0 && emu.Depot.Dirty() {
 		cfs := &createFS{Root: root}
 		err = emu.Depot.Marshal(cfs)
 		if err != nil {
-			log.Fatalf("depot '%v', %v", depot_path, err)
+			log.Fatalf("depot '%v', %v", cli.Depot, err)
 		}
 	}
 }
