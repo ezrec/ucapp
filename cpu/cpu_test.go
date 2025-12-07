@@ -105,7 +105,7 @@ func TestCpu_FetchCode_CAPP(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_CODE|0x1234, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NOT, 0, 0)
@@ -124,7 +124,7 @@ func TestCpu_FetchCode_CAPP_WithImmediates(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_CODE|0x1234, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
@@ -477,7 +477,7 @@ func TestCpu_Execute_CAPP_ListAll(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x100, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
@@ -497,7 +497,7 @@ func TestCpu_Execute_CAPP_ListNot(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x100, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NOT, 0, 0)
@@ -513,7 +513,7 @@ func TestCpu_Execute_CAPP_ListNext(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_LIST, ARENA_IO|0x100, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
@@ -533,7 +533,7 @@ func TestCpu_Execute_CAPP_ListOnly(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x100, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
@@ -555,7 +555,7 @@ func TestCpu_Execute_CAPP_SetOf(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x100, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NOT, 0, 0)
@@ -575,7 +575,7 @@ func TestCpu_Execute_CAPP_WriteFirst(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x100, 0xffffffff)
 
@@ -591,7 +591,7 @@ func TestCpu_Execute_CAPP_WriteList(t *testing.T) {
 	cpu := NewCpu(64)
 	defer cpu.Close()
 	cpu.Ip = 0
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x100, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NOT, 0, 0)
@@ -612,7 +612,7 @@ func TestCpu_Execute_IO_Fetch(t *testing.T) {
 	tape.Input = bytes.NewReader([]byte{0xFF})
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NOT, 0, 0)
@@ -634,7 +634,7 @@ func TestCpu_Execute_IO_Store(t *testing.T) {
 	tape.Output = buf
 	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
 
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0x0AA, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
@@ -809,7 +809,7 @@ func TestCpu_getValue_AllIR(t *testing.T) {
 	cpu.Stack.Push(0x77777777)
 	cpu.Match = 0x88888888
 	cpu.Mask = 0x99999999
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0xAAA, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
@@ -926,7 +926,7 @@ func TestCpu_listOutput(t *testing.T) {
 
 	cpu := NewCpu(64)
 	defer cpu.Close()
-	cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+	cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 	cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 	cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0xAB, 0xffffffff)
 	cpu.Capp.Action(capp.LIST_NEXT, 0, 0)

@@ -29,9 +29,10 @@ var sysEquate = map[string]string{
 	"LINENO":     "0",
 	"ARENA_MASK": fmt.Sprintf("%#v", ARENA_MASK),
 	"ARENA_IO":   fmt.Sprintf("%#v", ARENA_IO),
-	"ARENA_FREE": fmt.Sprintf("%#v", ARENA_FREE),
 	"ARENA_DATA": fmt.Sprintf("%#v", ARENA_DATA),
 	"ARENA_CODE": fmt.Sprintf("%#v", ARENA_CODE),
+	"ARENA_OS":   fmt.Sprintf("%#v", ARENA_OS),
+	"CAPP_FREE":  fmt.Sprintf("%#v", CAPP_FREE),
 }
 
 // Assembler is a single pass macro assembler for the μCAPP system.

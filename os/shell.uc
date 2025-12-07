@@ -7,7 +7,7 @@
 
 PROMPT:
 ; Print the shell prompt.
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 write first 0x617264 ; 'dra'
 list next
@@ -21,7 +21,7 @@ write list ~0
 ; Read command from command line
 ; (first 4 bytes or until a space is seen)
 alu set r0 0
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 list next
 list not    ; Only one word is allocated in the list.
@@ -53,7 +53,7 @@ if eq? first '\n' ; command complete?
 - list not
 - jump NEXT_COMMAND
 
-call Convert8To4
+call Convert8To6
 
 ; Find command (in r0) in current drum's Ring 0xff directory
 LOAD_RING:
@@ -61,7 +61,7 @@ alert depot $(DEPOT_OP_DRUM | DRUM_OP_SELECT | 0xff)
 await depot
 alert depot $(DEPOT_OP_DRUM | DRUM_OP_RING | RING_OP_REWIND_READ)
 await depot
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 fetch depot
 list not
@@ -69,12 +69,12 @@ alu shl r0 8
 list only r0 0xffffff00
 if none?
 + list all
-+ list write ARENA_FREE ARENA_MASK
++ list write CAPP_FREE
 + jump PROMPT
 
 ; Switch to ring for command
 alu set r0 first
-list write ARENA_FREE ARENA_MASK
+list write CAPP_FREE
 alu and r0 0xff
 alu or r0 $(DEPOT_OP_DRUM | DEPOT_OP_SELECT)
 alert depot r0
@@ -94,7 +94,7 @@ alu set r5 0x000c ; alu set ip 0
 alu set ip IP_MODE_REG
 
 ; Support functions
-Convert8To4:
+Convert8To6:
 ; Convert 4x8 bit command in r0 to 6-bit encoding
 alu set r2 0
 list of ARENA_DATA ARENA_MASK

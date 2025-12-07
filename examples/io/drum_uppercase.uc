@@ -18,7 +18,7 @@ await depot r0
 ; Reset read pointer of ring
 alert depot $(DEPOT_OP_DRUM | DRUM_OP_RING | RING_OP_REWIND_READ)
 await depot r0
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 fetch depot 0xff
 list not

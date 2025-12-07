@@ -159,9 +159,9 @@ io alert monitor SOME_IPC_FUNCTION_KEY
 ; (optional) send any parameter data
 io store monitor
 list not
-list write ARENA_FREE ARENA_MASK
+list write CAPP_FREE
 ; (optional) fetch any result data
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 io fetch monitor
 list not
@@ -179,7 +179,7 @@ LOOP:
 ; await a remote IPC on the monitor
 io await monitor r0
 ; (optional) read data from the monitor channel
-list of ARENA_FREE ARENA_MASK
+list of CAPP_FREE
 list all
 io fetch monitor
 list not

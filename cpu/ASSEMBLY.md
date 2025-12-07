@@ -20,7 +20,7 @@ The following equates are predefined by the system:
 | `ARENA_IO`   | 0x00000000 | Arena ID for program IO usage. |
 | `ARENA_DATA` | 0x40000000 | Arena ID for program data. |
 | `ARENA_CODE` | 0x80000000 | Arena ID for program code. |
-| `ARENA_FREE` | 0xc0000000 | Arena ID for unused CAPP words. |
+| `CAPP_FREE` | 0xc0000000 | Arena ID for unused CAPP words. |
 | `CAPP_SIZE`  | 8192 | The total size of the CAPP, in words. |
 
 ## Instruction Primitives

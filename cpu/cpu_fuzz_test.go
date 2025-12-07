@@ -45,7 +45,7 @@ func FuzzCpu(f *testing.F) {
 		cpu := NewCpu(1024)
 		defer cpu.Close()
 
-		cpu.Capp.Action(capp.SET_OF, ARENA_FREE, ARENA_MASK)
+		cpu.Capp.Action(capp.SET_OF, CAPP_FREE, ^uint32(0))
 		cpu.Capp.Action(capp.LIST_ALL, 0, 0)
 		cpu.Capp.Action(capp.WRITE_FIRST, ARENA_IO|0xcafe30, 0xffffffff)
 		cpu.Capp.Action(capp.LIST_NEXT, 0, 0)
