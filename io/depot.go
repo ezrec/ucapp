@@ -3,6 +3,7 @@ package io
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"iter"
 	"maps"
@@ -48,14 +49,14 @@ func (depot *Depot) Defines() iter.Seq2[string, string] {
 }
 
 // Unmarshal loads depot data from a file system by scanning for drum directories
-// matching the pattern XXXXXX.drum (6 hex digits).
+// matching the pattern XXXXXX.ud (6 hex digits).
 func (depot *Depot) Unmarshal(filesys fs.FS) (err error) {
 	return fs.WalkDir(filesys, ".", func(path string, d fs.DirEntry, err_in error) (err error) {
 		if !d.IsDir() {
 			return
 		}
 		name := d.Name()
-		ok, err := regexp.MatchString("(?i)[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].drum", name)
+		ok, err := regexp.MatchString("(?i)[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].ud", name)
 		if err != nil {
 			return
 		}
@@ -85,11 +86,15 @@ func (depot *Depot) Unmarshal(filesys fs.FS) (err error) {
 }
 
 // Marshal writes the depot's drums to a file system, creating directories
-// named XXXXXX.drum for each drum.
+// named XXXXXX.ud for each drum.
 func (depot *Depot) Marshal(filesys CreateFS) (err error) {
 	for index, drum := range depot.Drums {
+		if !drum.Dirty() {
+			continue
+		}
+
 		var subsys CreateFS
-		drum_name := fmt.Sprintf("%06x.drum", index)
+		drum_name := fmt.Sprintf("%06x.ud", index)
 		subsys, err = filesys.Sub(drum_name)
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
