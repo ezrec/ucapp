@@ -674,11 +674,9 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		case "lt?":
 			op = COND_OP_LT
 		case "ge?":
-			op = COND_OP_LT
-			b, a = a, b
+			op = COND_OP_GE
 		case "gt?":
-			op = COND_OP_LE
-			b, a = a, b
+			op = COND_OP_GT
 		default:
 			err = ErrOpcodeInvalid
 			return
