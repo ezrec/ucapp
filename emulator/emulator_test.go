@@ -24,9 +24,11 @@ func doRunSingle(emu *Emulator, program []string, input []byte, t *testing.T) (o
 	assert := assert.New(t)
 
 	asm := &cpu.Assembler{}
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
-	emu.Program = prog
+	emu.Program, err = asm.Link()
+	assert.NoError(err)
 
 	err = emu.Reset(cpu.CHANNEL_ID_MONITOR)
 	assert.NoError(err)
@@ -35,7 +37,7 @@ func doRunSingle(emu *Emulator, program []string, input []byte, t *testing.T) (o
 	tape_output := &bytes.Buffer{}
 	emu.Tape.Output = tape_output
 
-	for _, op := range prog.Opcodes {
+	for _, op := range emu.Program.Opcodes {
 		assert.Equal(emu.LineNo(), op.LineNo)
 		here := program[emu.LineNo()-1]
 		for c := range len(op.Codes) {
@@ -64,9 +66,11 @@ func doRunBranch(emu *Emulator, program []string, input []byte, t *testing.T) (o
 	assert := assert.New(t)
 
 	asm := &cpu.Assembler{}
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
-	emu.Program = prog
+	emu.Program, err = asm.Link()
+	assert.NoError(err)
 
 	err = emu.Reset(cpu.CHANNEL_ID_MONITOR)
 	assert.NoError(err)

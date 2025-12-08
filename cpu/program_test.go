@@ -12,11 +12,11 @@ func TestProgram_Debug(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}},
-			{LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
+			{Filename: "test.uc", LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}},
-			{LineNo: 3, Ip: 2, Words: []string{"alu", "add", "r0", "r1"},
+			{Filename: "test.uc", LineNo: 3, Ip: 2, Words: []string{"alu", "add", "r0", "r1"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_REG_R1)}},
 		},
 	}
@@ -42,7 +42,7 @@ func TestProgram_Debug_NotFound(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}},
 		},
 	}
@@ -57,7 +57,7 @@ func TestProgram_Debug_MultipleCodesPerOpcode(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"call", "FUNC"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"call", "FUNC"},
 				Codes: []Code{
 					MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
 					MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_STACK, IR_IP),
@@ -85,9 +85,9 @@ func TestProgram_Binary(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}},
-			{LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
+			{Filename: "test.uc", LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}},
 		},
 	}
@@ -112,7 +112,7 @@ func TestProgram_Binary_WithMultipleImmediates(t *testing.T) {
 	code := MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_32, 0x1234, 0x5678)
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x12345678"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x12345678"},
 				Codes: []Code{code}},
 		},
 	}
@@ -135,9 +135,9 @@ func TestProgram_Codes(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}},
-			{LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
+			{Filename: "test.uc", LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}},
 			{LineNo: 3, Ip: 2, Words: []string{"alu", "add", "r0", "r1"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_REG_R1)}},
@@ -163,9 +163,9 @@ func TestProgram_Codes_EarlyReturn(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"write", "r0", "0x10"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}},
-			{LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
+			{Filename: "test.uc", LineNo: 2, Ip: 1, Words: []string{"write", "r1", "0x20"},
 				Codes: []Code{MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}},
 		},
 	}
@@ -201,7 +201,7 @@ func TestProgram_Codes_MultipleCodesPerOpcode(t *testing.T) {
 
 	prog := &Program{
 		Opcodes: []Opcode{
-			{LineNo: 1, Ip: 0, Words: []string{"call", "FUNC"},
+			{Filename: "test.uc", LineNo: 1, Ip: 0, Words: []string{"call", "FUNC"},
 				Codes: []Code{
 					MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
 					MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_STACK, IR_IP),
@@ -230,7 +230,10 @@ func TestProgram_Integration_ParseAndBinary(t *testing.T) {
 		"alu add r0 r1",
 	}, "\n")
 
-	prog, err := asm.Parse(strings.NewReader(program))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(program))
+	assert.NoError(err)
+	prog, err := asm.Link()
 	assert.NoError(err)
 
 	bins := prog.Binary()
@@ -251,7 +254,10 @@ func TestProgram_Integration_ParseAndDebug(t *testing.T) {
 		"alu add r0 r1",
 	}, "\n")
 
-	prog, err := asm.Parse(strings.NewReader(program))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(program))
+	assert.NoError(err)
+	prog, err := asm.Link()
 	assert.NoError(err)
 
 	dbg := prog.Debug(0)

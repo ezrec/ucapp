@@ -122,11 +122,12 @@ const (
 
 // Opcode represents a line of assembled code with its source location and generated instructions.
 type Opcode struct {
-	LineNo    int
-	Ip        int
-	Words     []string
-	Codes     []Code
-	LinkLabel string
+	Filename  string   // File name of the source file.
+	LineNo    int      // Line number of the source file.
+	Ip        int      // IP of this opcode list.
+	Words     []string // Words in the line.
+	Codes     []Code   // Codes for the line.
+	LinkLabel string   // Link label.
 }
 
 // Code represents a single instruction word with optional immediate values.
