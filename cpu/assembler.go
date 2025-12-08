@@ -19,9 +19,10 @@ import (
 
 // Macro represents a macro definition in the assembly language.
 type Macro struct {
-	LineNo int      // Line number of the macro definition.
-	Args   []string // Arguments for the macro.
-	Lines  []string // Lines of macro text to expand.
+	Filename string   // File name of the macro definition.
+	LineNo   int      // Line number of the macro definition.
+	Args     []string // Arguments for the macro.
+	Lines    []string // Lines of macro text to expand.
 }
 
 // Predefined system equates
@@ -41,10 +42,12 @@ type Assembler struct {
 	Opcode  []Opcode // List of generated opcodes.
 	Data    []uint32 // Data words to append.
 
-	predefine map[string]string   // Predefines
-	Label     map[string]int      // Map of jump labels to opcode indexes.
-	Equate    map[string]string   // Map of equates.
-	Macro     map[string](*Macro) // Map of macros.
+	ready     bool              // State is ready for parsing
+	predefine map[string]string // Predefines
+
+	Label  map[string]int      // Map of jump labels to opcode indexes.
+	Equate map[string]string   // Map of equates.
+	Macro  map[string](*Macro) // Map of macros.
 }
 
 // Define defines a new equate or redefines an existing equate.
@@ -201,7 +204,7 @@ func (asm *Assembler) parenEval(expr string) (value uint32, err error) {
 }
 
 // parseLine parses a single line as an opcode.
-func (asm *Assembler) parseLine(line string, lineno int) (words []string, err error) {
+func (asm *Assembler) parseLine(line string, filename string, lineno int) (words []string, err error) {
 	// Set line number.
 	asm.Equate["LINENO"] = fmt.Sprintf("%v", lineno)
 
@@ -311,21 +314,26 @@ func (asm *Assembler) parseLine(line string, lineno int) (words []string, err er
 		}
 		defer func() { asm.Equate = old_equate }()
 
+		defer func() {
+			if err != nil {
+				err = &ErrSyntax{Filename: filename, LineNo: lineno, Line: line, Err: err}
+			}
+		}()
+
 		for n, line := range macro.Lines {
 			lineno := macro.LineNo + n
+			filename := macro.Filename
 
 			line = strings.ReplaceAll(line, "@", fmt.Sprintf("%v_%v_", name, lineno))
-			words, err = asm.parseLine(line, lineno)
+			words, err = asm.parseLine(line, filename, lineno)
 			if err != nil {
-				err = &ErrMacro{Macro: name, Line: lineno, Err: err}
-				err = &ErrSyntax{LineNo: lineno, Line: line, Err: err}
+				err = &ErrMacro{Macro: name, Filename: filename, LineNo: lineno, Line: line, Err: err}
 				return
 			}
 
-			err = asm.parseWords(words, macro.LineNo+n)
+			err = asm.parseWords(words, filename, macro.LineNo+n)
 			if err != nil {
-				err = &ErrMacro{Macro: name, Line: lineno, Err: err}
-				err = &ErrSyntax{LineNo: lineno, Line: line, Err: err}
+				err = &ErrMacro{Macro: name, Filename: filename, LineNo: lineno, Line: line, Err: err}
 				return
 			}
 		}
@@ -348,21 +356,8 @@ func (asm *Assembler) currentIp() int {
 	return last.Ip + len(last.Codes)
 }
 
-// Parse parses an input stream into a Program containing opcodes.
-func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
-
-	scanner := bufio.NewScanner(input)
-
-	var line string
-	var lineno int
-	var macro *Macro
-
-	defer func() {
-		if err != nil {
-			err = &ErrSyntax{LineNo: lineno, Line: line, Err: err}
-		}
-	}()
-
+// Clear the assmbler state, and clears the current program.
+func (asm *Assembler) Clear() {
 	clear(asm.Label)
 	asm.Opcode = asm.Opcode[:0]
 	if asm.Macro == nil {
@@ -374,12 +369,49 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 		asm.Equate[attr] = val
 	}
 
+	asm.ready = true
+}
+
+// namedReader is an io.Reader interface with a Name() method.
+type namedReader interface {
+	io.Reader
+	Name() string
+}
+
+// Parse parses an input stream into a Program containing opcodes.
+func (asm *Assembler) Parse(input io.Reader) (err error) {
+	var line string
+	var lineno int
+	var macro *Macro
+
+	if !asm.ready {
+		err = ErrAssemblerNotReady
+		return
+	}
+
+	filename := "stdin"
+	nr, ok := input.(namedReader)
+	if ok {
+		filename = nr.Name()
+	}
+
+	defer func() {
+		if err != nil {
+			// No longer ready for parsing.
+			asm.ready = false
+
+			err = &ErrSyntax{Filename: filename, LineNo: lineno, Line: line, Err: err}
+		}
+	}()
+
+	scanner := bufio.NewScanner(input)
+
 	for scanner.Scan() {
 		text := scanner.Text()
 		lineno += 1
 
 		if asm.Verbose {
-			log.Printf("%v: %v\n", lineno, text)
+			log.Printf("%v:%v: %v\n", filename, lineno, text)
 		}
 
 		text_comment := strings.Split(text, ";")
@@ -405,7 +437,8 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 				return
 			}
 			macro = &Macro{
-				LineNo: lineno + 1,
+				Filename: filename,
+				LineNo:   lineno + 1,
 			}
 			if len(words) > 2 {
 				macro.Args = words[2:]
@@ -428,12 +461,12 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 			continue
 		}
 
-		words, err = asm.parseLine(line, lineno)
+		words, err = asm.parseLine(line, filename, lineno)
 		if err != nil {
 			return
 		}
 
-		err = asm.parseWords(words, lineno)
+		err = asm.parseWords(words, filename, lineno)
 		if err != nil {
 			return
 		}
@@ -443,6 +476,18 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 		err = ErrMacroLonely
 		return
 	}
+
+	return
+}
+
+// Link performs final linkage of the program.
+func (asm *Assembler) Link() (prog *Program, err error) {
+	if !asm.ready {
+		err = ErrAssemblerNotReady
+		return
+	}
+
+	asm.ready = false
 
 	// Final linking of jump labels.
 	for n := range asm.Opcode {
@@ -458,11 +503,13 @@ func (asm *Assembler) Parse(input io.Reader) (prog *Program, err error) {
 			return
 		}
 		if len(op.Codes) < 1 {
-			log.Fatalf("Unable to link label '%s' to line %d: %v", label, op.LineNo, op.Words)
+			err = fmt.Errorf("unable to link label '%s' to %v:%d: %v", label, op.Filename, op.LineNo, op.Words)
+			return
 		}
 		linked := &op.Codes[len(op.Codes)-1]
 		if len(linked.Immediates) < 2 {
-			log.Fatalf("Missing immediates for link label '%s' at line %d: %v", label, op.LineNo, op.Words)
+			err = fmt.Errorf("missing immediates for link label '%s' at %v:%d: %v", label, op.Filename, op.LineNo, op.Words)
+			return
 		}
 		linked.Immediates[0] |= uint16((ip >> 16) & 0xffff)
 		linked.Immediates[1] |= uint16((ip >> 0) & 0xffff)
@@ -550,7 +597,7 @@ func (asm *Assembler) getMatchMask(cond CodeCond, words []string) (match, mask C
 }
 
 // parseWords evaluates the words in a line of assembly text.
-func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
+func (asm *Assembler) parseWords(words []string, filename string, lineno int) (err error) {
 	var codes []Code
 	var label string
 
@@ -565,7 +612,7 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		if len(codes) == 0 {
 			return
 		}
-		opcode := Opcode{LineNo: lineno, Ip: asm.currentIp(), Words: initial_words, Codes: codes, LinkLabel: label}
+		opcode := Opcode{Filename: filename, LineNo: lineno, Ip: asm.currentIp(), Words: initial_words, Codes: codes, LinkLabel: label}
 		asm.Opcode = append(asm.Opcode, opcode)
 	}()
 
@@ -630,9 +677,10 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 	}
 
 	switch words[0] {
-	case ".dw":
+	case ".dl":
+		// 30-bit data
 		if len(words) != 2 {
-			err = ErrDwSyntax
+			err = ErrDataSyntax
 			return
 		}
 		var value uint32
@@ -640,9 +688,46 @@ func (asm *Assembler) parseWords(words []string, lineno int) (err error) {
 		if err != nil {
 			return
 		}
-		if value > 0x3_fff_ffff {
-			err = ErrDwInvalid
+		if value > 0x3f_ff_ffff {
+			err = ErrDataInvalid
 			return
+		}
+		asm.Data = append(asm.Data, value)
+	case ".dw":
+		// 16-bit data
+		if len(words) != 2 {
+			err = ErrDataSyntax
+			return
+		}
+		var value uint32
+		value, err = asm.valueOf(words[1])
+		if err != nil {
+			return
+		}
+		if value > 0xffff {
+			err = ErrDataInvalid
+			return
+		}
+		asm.Data = append(asm.Data, value)
+	case ".db":
+		// Single byte data, up to 3 bytes
+		if len(words) < 2 || len(words) > 4 {
+			err = ErrDataSyntax
+			return
+		}
+		var value uint32
+		for n := range len(words) - 1 {
+			var bvalue uint32
+			bvalue, err = asm.valueOf(words[n+1])
+			if err != nil {
+				return
+			}
+			if bvalue > 0xff {
+				err = ErrDataInvalid
+				return
+			}
+			value <<= 8
+			value |= bvalue
 		}
 		asm.Data = append(asm.Data, value)
 	case "if":

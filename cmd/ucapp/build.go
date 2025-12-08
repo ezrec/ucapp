@@ -27,7 +27,13 @@ func (cb *CliBuild) Run(opt *Options) (err error) {
 	for define, value := range emu.Defines() {
 		asm.Predefine(define, value)
 	}
-	prog, err := asm.Parse(cb.Source)
+
+	asm.Clear()
+	err = asm.Parse(cb.Source)
+	if err != nil {
+		log.Fatalf("%v: %v", cb.Source.Name(), err)
+	}
+	prog, err := asm.Link()
 	if err != nil {
 		log.Fatalf("%v: %v", cb.Source.Name(), err)
 	}

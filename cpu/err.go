@@ -32,8 +32,10 @@ var (
 	ErrOpcodeImm    = errors.New(f("imm"))
 
 	// Assembler errors
-	ErrDwSyntax           = errors.New(f(".dw syntax"))
-	ErrDwInvalid          = errors.New(f(".dw invalid value"))
+	ErrAssemblerNotReady  = errors.New(f("assembler not ready"))
+	ErrDataSyntax         = errors.New(f(".dl/.dw/.db syntax"))
+	ErrDataInvalid        = errors.New(f(".dl/.dw/.db invalid value"))
+	ErrDataTooLong        = errors.New(f(".dl/.dw/.db too long"))
 	ErrEquateSyntax       = errors.New(f(".equ syntax"))
 	ErrEquateDuplicate    = errors.New(f(".equ duplicated"))
 	ErrLabelDuplicate     = errors.New(f("label duplicated"))
@@ -73,13 +75,14 @@ func (eo ErrOpcode) Is(err error) (ok bool) {
 
 // ErrSyntax locates an error in the assembly listing.
 type ErrSyntax struct {
-	LineNo int
-	Line   string
-	Err    error
+	Filename string
+	LineNo   int
+	Line     string
+	Err      error
 }
 
 func (err ErrSyntax) Error() string {
-	return f("line %d \"%v\": %v", err.LineNo, err.Line, err.Err)
+	return f("at %v:%d \"%v\": %v", err.Filename, err.LineNo, err.Line, err.Err)
 }
 
 func (err ErrSyntax) Unwrap() error {
@@ -109,13 +112,15 @@ func (err ErrParseExpression) Error() string {
 
 // ErrMacro locates a macro error in the assembly listing.
 type ErrMacro struct {
-	Macro string
-	Line  int
-	Err   error
+	Macro    string
+	Filename string
+	LineNo   int
+	Line     string
+	Err      error
 }
 
 func (err ErrMacro) Error() string {
-	return f("macro %v line %v %v", err.Macro, err.Line, err.Err.Error())
+	return f("macro %v at %v:%v %v", err.Macro, err.Filename, err.LineNo, err.Err.Error())
 }
 
 func (err ErrMacro) Unwrap() error {

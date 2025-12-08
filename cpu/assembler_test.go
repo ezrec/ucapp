@@ -15,7 +15,10 @@ func TestAssembler(t *testing.T) {
 
 	asm := &Assembler{}
 
-	prog, err := asm.Parse(strings.NewReader(""))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(""))
+	assert.NoError(err)
+	prog, err := asm.Link()
 	assert.NoError(err)
 	assert.Equal(0, len(prog.Opcodes))
 
@@ -47,17 +50,25 @@ func TestAssemblerIo(t *testing.T) {
 		"- trap",
 	}
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
+	prog, err := asm.Link()
+	assert.NoError(err)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	assert.NotNil(prog)
 
 	expected := []Opcode{
-		{LineNo: 1, Ip: 0, Words: []string{"+", "trap"},
+		{Filename: "stdin", LineNo: 1, Ip: 0, Words: []string{"+", "trap"},
 			Codes: []Code{MakeCodeIo(COND_TRUE, IO_OP_AWAIT, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF)}},
-		{LineNo: 2, Ip: 1, Words: []string{"-", "trap"},
+		{Filename: "stdin", LineNo: 2, Ip: 1, Words: []string{"-", "trap"},
 			Codes: []Code{MakeCodeIo(COND_FALSE, IO_OP_AWAIT, CHANNEL_ID_MONITOR, IR_CONST_FFFFFFFF)}},
 	}
 
@@ -78,7 +89,14 @@ func TestAssemblerRegisters(t *testing.T) {
 		"list all",            // first = 0x123, count = 2
 	} // ip = 6
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	assert.NoError(err)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	prog, err := asm.Link()
 	assert.NoError(err)
 	if err != nil {
 		t.Fatal(err)
@@ -86,17 +104,17 @@ func TestAssemblerRegisters(t *testing.T) {
 	}
 
 	expected := []Opcode{
-		{1, 0, []string{"list", "of", "0x123", "0x7ff"}, []Code{
+		{"stdin", 1, 0, []string{"list", "of", "0x123", "0x7ff"}, []Code{
 			MakeCodeCapp(COND_ALWAYS, CAPP_OP_SET_OF, IR_IMMEDIATE_16, IR_IMMEDIATE_16, 0x123, 0x7ff)}, ""},
-		{2, 1, []string{"write", "r0", "0x10"}, []Code{
+		{"stdin", 2, 1, []string{"write", "r0", "0x10"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}, ""},
-		{3, 2, []string{"write", "r1", "0x20"}, []Code{
+		{"stdin", 3, 2, []string{"write", "r1", "0x20"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}, ""},
-		{4, 3, []string{"write", "r2", "0x30"}, []Code{
+		{"stdin", 4, 3, []string{"write", "r2", "0x30"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R2, IR_IMMEDIATE_16, 0x30)}, ""},
-		{5, 4, []string{"write", "r3", "0x40"}, []Code{
+		{"stdin", 5, 4, []string{"write", "r3", "0x40"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R3, IR_IMMEDIATE_16, 0x40)}, ""},
-		{6, 5, []string{"list", "all"}, []Code{
+		{"stdin", 6, 5, []string{"list", "all"}, []Code{
 			MakeCodeCapp(COND_ALWAYS, CAPP_OP_LIST_ALL, IR_CONST_0, IR_CONST_0)}, ""},
 	}
 
@@ -122,37 +140,45 @@ func TestAssemblerAlu(t *testing.T) {
 		"write r3 0x40", // r3
 	} // ip = 6
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
 	if err != nil {
 		t.Fatal(err)
 		return
 	}
+	prog, err := asm.Link()
+	assert.NoError(err)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	assert.NotNil(prog)
 
 	expected := []Opcode{
-		{1, 0, []string{"write", "r0", "0x10"}, []Code{
+		{"stdin", 1, 0, []string{"write", "r0", "0x10"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 0x10)}, ""},
-		{2, 1, []string{"alu", "add", "r0", "1"}, []Code{
+		{"stdin", 2, 1, []string{"alu", "add", "r0", "1"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_IMMEDIATE_16, 0x1)}, ""},
-		{3, 2, []string{"alu", "sub", "r0", "1"}, []Code{
+		{"stdin", 3, 2, []string{"alu", "sub", "r0", "1"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SUB, IR_REG_R0, IR_IMMEDIATE_16, 0x1)}, ""},
-		{4, 3, []string{"write", "r1", "0x200"}, []Code{
+		{"stdin", 4, 3, []string{"write", "r1", "0x200"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x200)}, ""},
-		{5, 4, []string{"alu", "xor", "r1", "r0"}, []Code{
+		{"stdin", 5, 4, []string{"alu", "xor", "r1", "r0"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_XOR, IR_REG_R1, IR_REG_R0)}, ""},
-		{6, 5, []string{"alu", "and", "r1", "0xf"}, []Code{
+		{"stdin", 6, 5, []string{"alu", "and", "r1", "0xf"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_AND, IR_REG_R1, IR_IMMEDIATE_16, 0xf)}, ""},
-		{7, 6, []string{"alu", "shl", "r1", "2"}, []Code{
+		{"stdin", 7, 6, []string{"alu", "shl", "r1", "2"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SHL, IR_REG_R1, IR_IMMEDIATE_16, 2)}, ""},
-		{8, 7, []string{"alu", "and", "r1", "0x20"}, []Code{
+		{"stdin", 8, 7, []string{"alu", "and", "r1", "0x20"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_AND, IR_REG_R1, IR_IMMEDIATE_16, 0x20)}, ""},
-		{9, 8, []string{"write", "r2", "0x100"}, []Code{
+		{"stdin", 9, 8, []string{"write", "r2", "0x100"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R2, IR_IMMEDIATE_16, 0x100)}, ""},
-		{10, 9, []string{"alu", "or", "r2", "0x200"}, []Code{
+		{"stdin", 10, 9, []string{"alu", "or", "r2", "0x200"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_OR, IR_REG_R2, IR_IMMEDIATE_16, 0x200)}, ""},
-		{11, 10, []string{"alu", "shr", "r2", "4"}, []Code{
+		{"stdin", 11, 10, []string{"alu", "shr", "r2", "4"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SHR, IR_REG_R2, IR_IMMEDIATE_16, 0x4)}, ""},
-		{12, 11, []string{"write", "r3", "0x40"}, []Code{
+		{"stdin", 12, 11, []string{"write", "r3", "0x40"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R3, IR_IMMEDIATE_16, 0x40)}, ""},
 	}
 
@@ -172,11 +198,15 @@ func TestAssemblerEqu(t *testing.T) {
 		"write r3 $(LINENO * 8 + 0x10)", // r3
 	} // ip = 4
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
 	if err != nil {
 		t.Fatal(errors.Unwrap(err))
+		return
 	}
+	prog, err := asm.Link()
+	assert.NoError(err)
 
 	assert.Equal(4, len(prog.Opcodes))
 }
@@ -202,36 +232,39 @@ func TestAssemblerMacro(t *testing.T) {
 		"NESTED 0",
 	} // ip = 6
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
 	if err != nil {
 		log.Fatal(err)
 	}
+	prog, err := asm.Link()
+	assert.NoError(err)
 
 	expected := []Opcode{
-		{2, 0, []string{"write", "r0", "8"}, []Code{
+		{"stdin", 2, 0, []string{"write", "r0", "8"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_IMMEDIATE_16, 8)}, ""},
-		{3, 1, []string{"alu", "add", "r0", "8"}, []Code{
+		{"stdin", 3, 1, []string{"alu", "add", "r0", "8"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_IMMEDIATE_16, 8)}, ""},
-		{2, 2, []string{"write", "r1", "0x10"}, []Code{
+		{"stdin", 2, 2, []string{"write", "r1", "0x10"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_IMMEDIATE_16, 0x10)}, ""},
-		{3, 3, []string{"alu", "add", "r1", "0x10"}, []Code{
+		{"stdin", 3, 3, []string{"alu", "add", "r1", "0x10"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R1, IR_IMMEDIATE_16, 0x10)}, ""},
-		{2, 4, []string{"write", "r2", "0x20"}, []Code{
+		{"stdin", 2, 4, []string{"write", "r2", "0x20"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R2, IR_IMMEDIATE_16, 0x20)}, ""},
-		{3, 5, []string{"alu", "add", "r2", "r0"}, []Code{
+		{"stdin", 3, 5, []string{"alu", "add", "r2", "r0"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R2, IR_REG_R0)}, ""},
-		{2, 6, []string{"write", "r3", "r2"}, []Code{
+		{"stdin", 2, 6, []string{"write", "r3", "r2"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R3, IR_REG_R2)}, ""},
-		{3, 7, []string{"alu", "add", "r3", "r0"}, []Code{
+		{"stdin", 3, 7, []string{"alu", "add", "r3", "r0"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R3, IR_REG_R0)}, ""},
-		{2, 8, []string{"write", "r0", "0"}, []Code{
+		{"stdin", 2, 8, []string{"write", "r0", "0"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R0, IR_CONST_0)}, ""},
-		{3, 9, []string{"alu", "add", "r0", "0xffffffff"}, []Code{
+		{"stdin", 3, 9, []string{"alu", "add", "r0", "0xffffffff"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R0, IR_CONST_FFFFFFFF)}, ""},
-		{2, 10, []string{"write", "r1", "0xffffffff"}, []Code{
+		{"stdin", 2, 10, []string{"write", "r1", "0xffffffff"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_REG_R1, IR_CONST_FFFFFFFF)}, ""},
-		{3, 11, []string{"alu", "add", "r1", "0"}, []Code{
+		{"stdin", 3, 11, []string{"alu", "add", "r1", "0"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_REG_R1, IR_CONST_0)}, ""},
 	}
 
@@ -255,7 +288,10 @@ func TestAssemblerLabel(t *testing.T) {
 		"write r3 0x40",
 	}
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	assert.NoError(err)
+	prog, err := asm.Link()
 	assert.NoError(err)
 
 	assert.Equal(7, len(prog.Opcodes))
@@ -275,27 +311,30 @@ func TestAssemblerCall(t *testing.T) {
 		"exit",
 	}
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	assert.NoError(err)
+	prog, err := asm.Link()
 	assert.NoError(err)
 
 	expected := []Opcode{
-		{1, 0, []string{"call", "FUNC"}, []Code{
+		{"stdin", 1, 0, []string{"call", "FUNC"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_STACK, IR_IP),
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, 0, 4),
 		}, "FUNC"},
-		{2, 3, []string{"jump", "EXIT"}, []Code{
+		{"stdin", 2, 3, []string{"jump", "EXIT"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_32, 0, 8),
 		}, "EXIT"},
-		{4, 4, []string{"vcall", "0x1234"}, []Code{
+		{"stdin", 4, 4, []string{"vcall", "0x1234"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_STACK, IR_IMMEDIATE_16, 1),
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_ADD, IR_STACK, IR_IP),
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_IMMEDIATE_16, 0x1234),
 		}, ""},
-		{5, 7, []string{"return"}, []Code{
+		{"stdin", 5, 7, []string{"return"}, []Code{
 			MakeCodeAlu(COND_ALWAYS, ALU_OP_SET, IR_IP, IR_STACK),
 		}, ""},
-		{7, 8, []string{"exit"}, []Code{
+		{"stdin", 7, 8, []string{"exit"}, []Code{
 			MakeCodeExit(COND_ALWAYS),
 		}, ""},
 	}
@@ -322,11 +361,14 @@ func TestAssemblerSystemMacro(t *testing.T) {
 		"store 0",
 	}
 
-	prog, err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
 	assert.NoError(err)
 	if err != nil {
 		log.Fatal(err)
 	}
+	prog, err := asm.Link()
+	assert.NoError(err)
 
 	if !assert.Equal(10, len(prog.Opcodes)) {
 		assert.Equal(&Program{}, prog)
@@ -394,13 +436,17 @@ func TestAssemblerErrSyntax(t *testing.T) {
 	}
 
 	for _, entry := range table {
-		_, err := asm.Parse(strings.NewReader(entry.prog))
-		var se *ErrSyntax
-		assert.NotNil(err, entry.prog)
-		if err != nil {
+		asm.Clear()
+		err := asm.Parse(strings.NewReader(entry.prog))
+		if err == nil {
+			_, err = asm.Link()
+		} else {
+			var se *ErrSyntax
 			assert.True(errors.As(err, &se), entry.prog)
+			assert.Equal("stdin", se.Filename, entry.prog)
 			assert.Equal(entry.line, se.LineNo, entry.prog)
 		}
+		assert.NotNil(err, entry.prog)
 	}
 
 }

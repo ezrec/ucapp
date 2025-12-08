@@ -999,7 +999,9 @@ func TestAssembler_Define(t *testing.T) {
 	asm.Predefine("TEST2", "0x5678")
 
 	program := "alu set r0 TEST1\nalu set r1 TEST2\n"
-	_, err := asm.Parse(strings.NewReader(program))
+
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(program))
 	assert.NoError(err)
 }
 
@@ -1127,10 +1129,10 @@ func TestErrSyntax_Unwrap(t *testing.T) {
 	assert := assert.New(t)
 
 	inner := errors.New("inner error")
-	err := ErrSyntax{LineNo: 5, Line: "test line", Err: inner}
+	err := ErrSyntax{Filename: "tester.uc", LineNo: 5, Line: "test line", Err: inner}
 
 	assert.Equal(inner, err.Unwrap())
-	assert.Contains(err.Error(), "line 5")
+	assert.Contains(err.Error(), "tester.uc:5")
 	assert.Contains(err.Error(), "test line")
 }
 
@@ -1162,11 +1164,11 @@ func TestErrMacro_Unwrap(t *testing.T) {
 	assert := assert.New(t)
 
 	inner := errors.New("inner error")
-	err := ErrMacro{Macro: "MYMACRO", Line: 3, Err: inner}
+	err := ErrMacro{Macro: "MYMACRO", Filename: "macros.uc", LineNo: 3, Err: inner}
 
 	assert.Equal(inner, err.Unwrap())
 	assert.Contains(err.Error(), "MYMACRO")
-	assert.Contains(err.Error(), "3")
+	assert.Contains(err.Error(), "macros.uc:3")
 }
 
 func TestCpu_PowerAndTicks(t *testing.T) {
@@ -1200,7 +1202,10 @@ func TestProgram_Integration(t *testing.T) {
 		"alu add r0 r1",
 	}, "\n")
 
-	prog, err := asm.Parse(strings.NewReader(program))
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(program))
+	assert.NoError(err)
+	prog, err := asm.Link()
 	assert.NoError(err)
 	assert.Equal(3, len(prog.Opcodes))
 }
