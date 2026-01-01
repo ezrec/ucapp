@@ -14,7 +14,7 @@ type CliRun struct {
 	Drum   uint32 `help:"Drum in the depot to run (default is 0x000000)"`
 	Ring   uint8  `help:"Ring in the drum to run (default is 0x00)"`
 	Input  string `help:"Tape input" default:"-"`
-	Output string `help:"Tape input" default:"-"`
+	Output string `help:"Tape output" default:"-"`
 }
 
 func (cr *CliRun) Run(opt *Options) (err error) {

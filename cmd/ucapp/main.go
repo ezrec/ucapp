@@ -37,7 +37,7 @@ func (cf *createFS) Sub(name string) (sub sio.CreateFS, err error) {
 }
 
 type Cli struct {
-	Verbose   bool   `help:"Enter vebose mode"`
+	Verbose   bool   `help:"Enter verbose mode"`
 	DepotPath string `help:"Path to the depot to use." name:"depot" default:"depot/"`
 
 	Build CliBuild `cmd:"" help:"Build a ucapp program"`
@@ -86,7 +86,7 @@ func main() {
 		cfs := &createFS{Root: root}
 		err = emu.Depot.Marshal(cfs)
 		if err != nil {
-			log.Fatalf("depot '%v', %v", cli.Depot, err)
+			log.Fatalf("depot '%v', %v", cli.DepotPath, err)
 		}
 	}
 }
