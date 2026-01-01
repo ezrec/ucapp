@@ -6,8 +6,10 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"maps"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -48,6 +50,8 @@ type Assembler struct {
 	Label  map[string]int      // Map of jump labels to opcode indexes.
 	Equate map[string]string   // Map of equates.
 	Macro  map[string](*Macro) // Map of macros.
+
+	FS fs.FS // Filesystem for includes
 }
 
 // Define defines a new equate or redefines an existing equate.
@@ -369,6 +373,14 @@ func (asm *Assembler) Clear() {
 		asm.Equate[attr] = val
 	}
 
+	if asm.FS == nil {
+		root, err := os.OpenRoot(".")
+		if err != nil {
+			panic(err)
+		}
+		asm.FS = root.FS()
+	}
+
 	asm.ready = true
 }
 
@@ -423,6 +435,26 @@ func (asm *Assembler) Parse(input io.Reader) (err error) {
 			if len(single) > 0 {
 				words = append(words, single)
 			}
+		}
+
+		// .include PATH
+		if len(words) > 0 && words[0] == ".include" {
+			if len(words) != 2 {
+				err = ErrIncludePath
+				return
+			}
+			var new_in fs.File
+			new_in, err = asm.FS.Open(words[1])
+			if err != nil {
+				return
+			}
+			err = asm.Parse(new_in)
+			new_in.Close()
+			if err != nil {
+				return
+			}
+
+			continue
 		}
 
 		// .macro NAME arg...
