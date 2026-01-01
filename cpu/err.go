@@ -38,6 +38,7 @@ var (
 	ErrDataTooLong        = errors.New(f(".dl/.dw/.db too long"))
 	ErrEquateSyntax       = errors.New(f(".equ syntax"))
 	ErrEquateDuplicate    = errors.New(f(".equ duplicated"))
+	ErrIncludePath        = errors.New(f(".include path must be one word"))
 	ErrLabelDuplicate     = errors.New(f("label duplicated"))
 	ErrMacroSyntax        = errors.New(f(".macro syntax"))
 	ErrMacroNesting       = errors.New(f(".macro in .macro prohibited"))
