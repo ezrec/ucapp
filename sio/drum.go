@@ -147,7 +147,7 @@ func (drum *Drum) Send(value bool) (err error) {
 	return
 }
 
-// selectRing selectes a ring
+// selectRing selects a ring
 func (drum *Drum) selectRing(selected uint8) {
 	ring, ok := drum.Rings[selected]
 	if !ok {
@@ -191,7 +191,7 @@ func (drum *Drum) Dirty() bool {
 	return false
 }
 
-// Delete a file from a drum.
+// Delete deletes a file from a drum.
 func (drum *Drum) Delete(name string) (err error) {
 	if drum.Rings == nil {
 		drum.Rings = map[uint8](*Ring){}
@@ -229,7 +229,7 @@ func (drum *Drum) Delete(name string) (err error) {
 	return
 }
 
-// Save a file into a drum, allocating a name in the dirent for it.
+// Save saves a file into a drum, allocating a name in the dirent for it.
 func (drum *Drum) Save(name string, content io.Reader) (err error) {
 	if drum.Rings == nil {
 		drum.Rings = map[uint8](*Ring){}
@@ -340,7 +340,7 @@ func (drum *Drum) Save(name string, content io.Reader) (err error) {
 	return
 }
 
-// Get the sequence of directory entries from the drum.
+// Dirents returns the sequence of directory entries from the drum.
 func (drum *Drum) Dirents() iter.Seq[DrumDirent] {
 	return func(yield func(dd DrumDirent) bool) {
 		if drum.Rings == nil {
@@ -377,12 +377,12 @@ func (dirent *DrumDirent) NameIs(name string) bool {
 	return strings.EqualFold(name, dirent.Name)
 }
 
-// Return the on-ring size of the dirent itself in bytes.
+// Size returns the on-ring size of the dirent itself in bytes.
 func (dirent *DrumDirent) Size() int {
 	return 4
 }
 
-// Delete marks the entry as deleted
+// Delete marks the entry as deleted.
 func (dirent *DrumDirent) Delete() {
 	// Just set the ring to the same as the directory ring.
 	dirent.Ring = 0xff
@@ -394,7 +394,7 @@ func (dirent *DrumDirent) Deleted() bool {
 	return dirent.Ring == 0xff
 }
 
-// Unmarshal converts a on-ring representation of the dirent into the structure.
+// Unmarshal converts an on-ring representation of the dirent into the structure.
 func (dirent *DrumDirent) Unmarshal(content []uint8) (err error) {
 	if len(content) < dirent.Size() {
 		err = fmt.Errorf("drum dirent content is too small")
@@ -412,7 +412,7 @@ func (dirent *DrumDirent) Unmarshal(content []uint8) (err error) {
 		if chr == 0 {
 			break
 		}
-		if int(chr) > len(_depot_charset) {
+		if int(chr) >= len(_depot_charset) {
 			log.Fatalf("unable to decode %d to ASCII", chr)
 		}
 		dirent.Name += string([]byte{_depot_charset[chr]})
@@ -422,7 +422,7 @@ func (dirent *DrumDirent) Unmarshal(content []uint8) (err error) {
 	return
 }
 
-// Marshal converts the dirent to the on-ring resprentation
+// Marshal converts the dirent to the on-ring representation
 func (dirent *DrumDirent) Marshal() (content []uint8, err error) {
 	content = make([]uint8, dirent.Size())
 	content[3] = dirent.Ring

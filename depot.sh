@@ -9,7 +9,7 @@ go run ./cmd/ucapp build os/shell.uc
 go run ./cmd/ucapp build os/list.uc
 
 # Write the shell to the boot ring.
-go run ./cmd/ucapp depot save 0x00 os/shell.ur
+go run ./cmd/ucapp depot save --drum 000000 0x00 os/shell.ur
 
 # Save the rest of the tools
 go run ./cmd/ucapp depot save LIST os/list.ur
