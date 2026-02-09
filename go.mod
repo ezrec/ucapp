@@ -3,7 +3,7 @@ module github.com/ezrec/ucapp
 go 1.24.5
 
 require (
-	github.com/alecthomas/kong v1.13.0
+	github.com/alecthomas/kong v1.14.0
 	github.com/jeandeaual/go-locale v0.0.0-20250612000132-0ef82f21eade
 	github.com/stretchr/testify v1.11.1
 	go.starlark.net v0.0.0-20251109183026-be02852a5e1f
