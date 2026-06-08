@@ -32,10 +32,11 @@ peripheral, but the actual main memory of the system _and_ a unique bit-mask
 vector processor.
 
 He later worked on the design of the Goodyear STARAN system (1977) - developed
-for the US Air Force for air traffic control situations.
+for the US Air Force for air traffic control situations, which used a Content
+Addressable Parallel Processor as its core computing architecture.
 
 μCAPP looks to imagine a retro-history where STARAN technology was made readily
-avaible to the interested researcher - as the Intel 8080 and MOS Technology
+available to the interested researcher - as the Intel 8080 and MOS Technology
 6502 brought conventional linear memory array processors to the hobbyists of
 the time.
 
