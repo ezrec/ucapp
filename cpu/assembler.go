@@ -364,6 +364,7 @@ func (asm *Assembler) currentIp() int {
 func (asm *Assembler) Clear() {
 	clear(asm.Label)
 	asm.Opcode = asm.Opcode[:0]
+	asm.Data = asm.Data[:0]
 	if asm.Macro == nil {
 		asm.Macro = make(map[string](*Macro))
 	}
@@ -504,6 +505,11 @@ func (asm *Assembler) Parse(input io.Reader) (err error) {
 		}
 	}
 
+	err = scanner.Err()
+	if err != nil {
+		return err
+	}
+
 	if macro != nil {
 		err = ErrMacroLonely
 		return
@@ -567,6 +573,25 @@ var aluMap = map[string]CodeAluOp{
 	"sub": ALU_OP_SUB,
 }
 
+// coprocMap is a map of the coprocessors
+var coprocMap = map[string]CodeCoprocId{
+	"cp0": COPROC_ID_0,
+	"cp1": COPROC_ID_1,
+	"cp2": COPROC_ID_2,
+	"cp3": COPROC_ID_3,
+}
+
+// getCoproc get the coprocessor ID for a word.
+func (asm *Assembler) getCoproc(word string) (id CodeCoprocId, err error) {
+	id, ok := coprocMap[word]
+	if ok {
+		return
+	}
+
+	err = ErrCoprocInvalid
+	return
+}
+
 // channelMap maps IO channel names.
 var channelMap = map[string]CodeChannel{
 	"temp":    CHANNEL_ID_TEMP,
@@ -587,7 +612,7 @@ func (asm *Assembler) getChannel(word string) (channel CodeChannel, err error) {
 		return
 	}
 
-	if value > 8 {
+	if value >= 8 {
 		err = ErrChannelInvalid
 		return
 	}
@@ -872,6 +897,20 @@ func (asm *Assembler) parseWords(words []string, filename string, lineno int) (e
 			err = ErrOpcodeInvalid
 			return
 		}
+	case "coproc":
+		var id CodeCoprocId
+		var value, mask CodeIR
+		var imms []uint16
+		if len(words) < 3 {
+			err = ErrOpcodeValueMissing
+			return
+		}
+		id, err = asm.getCoproc(words[1])
+		value, mask, imms, err = asm.getMatchMask(cond, words[2:])
+		if err != nil {
+			return
+		}
+		codes = append(codes, MakeCodeCoproc(cond, id, value, mask, imms...))
 	case "io":
 		if len(words) < 3 {
 			err = ErrOpcodeMissing

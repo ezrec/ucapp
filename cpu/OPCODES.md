@@ -52,6 +52,13 @@ CAPP is modified later it does _not_ affect the running program.
   1110 - immediate & 0xffff; then immediate >>= 16
   1111 - immediate; then immediate >>= 32
 
+## Coprocessor IDs
+
+  00 - cp0
+  01 - cp1
+  10 - cp2
+  11 - cp3
+
 ## Channels
 
   000 - temp
@@ -147,7 +154,7 @@ IIII: Immediate value to shift in
     ; NOTE: .imm follows the opcode, and is in the same OPCODE PC index!
 ```
 
-coproc 1 r0
+coproc cp1 r0
 
 fetch CHANNEL MASK
 store CHANNEL MASK

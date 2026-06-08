@@ -20,10 +20,11 @@ type CodeClass int
 
 //go:generate go tool stringer -linecomment -type=CodeClass
 const (
-	OP_ALU  = CodeClass(0) // alu
-	OP_COND = CodeClass(1) // if
-	OP_CAPP = CodeClass(2) // list
-	OP_IO   = CodeClass(3) // io
+	OP_ALU    = CodeClass(0) // alu
+	OP_COND   = CodeClass(1) // if
+	OP_CAPP   = CodeClass(2) // list
+	OP_IO     = CodeClass(3) // io
+	OP_COPROC = CodeClass(4) // coproc
 )
 
 // CodeAluOp is an ALU operation type.
@@ -78,6 +79,17 @@ const (
 	IO_OP_STORE = CodeIoOp(1) // store
 	IO_OP_AWAIT = CodeIoOp(2) // await
 	IO_OP_ALERT = CodeIoOp(3) // alert
+)
+
+// CodeCoprocId is the ID of a co-processor
+type CodeCoprocId int
+
+//go:generate go tool stringer -linecomment -type=CodeCoprocId
+const (
+	COPROC_ID_0 = CodeCoprocId(0) // cp0
+	COPROC_ID_1 = CodeCoprocId(1) // cp1
+	COPROC_ID_2 = CodeCoprocId(2) // cp2
+	COPROC_ID_3 = CodeCoprocId(3) // cp3
 )
 
 // CodeIR is an Immediate-or-Register decode type.
@@ -154,9 +166,14 @@ func MakeCodeCapp(cond CodeCond, op CodeCappOp, src_v, src_m CodeIR, imms ...uin
 	return makeCond(cond, (uint16(OP_CAPP)<<11)|(uint16(op)<<8)|(uint16(src_v)<<4)|(uint16(src_m)<<0), imms...)
 }
 
+// MakeCodeCoproc creates a coprocessor operation instruction.
+func MakeCodeCoproc(cond CodeCond, id CodeCoprocId, src_v, src_m CodeIR, imms ...uint16) Code {
+	return makeCond(cond, (uint16(OP_IO)<<11)|(1<<10)|(uint16(id)<<8)|(uint16(src_v)<<4)|(uint16(src_m)<<0), imms...)
+}
+
 // MakeCodeIo creates an I/O operation instruction.
 func MakeCodeIo(cond CodeCond, op CodeIoOp, channel CodeChannel, arg CodeIR, imms ...uint16) Code {
-	return makeCond(cond, (uint16(OP_IO)<<11)|(uint16(op)<<8)|(uint16(channel)<<4)|(uint16(arg)<<0), imms...)
+	return makeCond(cond, (uint16(OP_IO)<<11)|(0<<10)|(uint16(op)<<8)|(uint16(channel)<<4)|(uint16(arg)<<0), imms...)
 }
 
 // MakeCodeAlu creates an ALU operation instruction.
@@ -178,7 +195,11 @@ func (code Code) Cond() CodeCond {
 // Class returns the operation class (ALU, COND, CAPP, or IO) from the instruction word.
 func (code Code) Class() CodeClass {
 	word := uint16(code.Word)
-	return CodeClass((word >> 11) & 0x3)
+	class := CodeClass((word >> 11) & 0x3)
+	if (class == OP_IO) && (((word >> 10) & 1) == 1) {
+		class = OP_COPROC
+	}
+	return class
 }
 
 // AluDecode decodes and returns the ALU operation, target register, and argument.
@@ -211,9 +232,18 @@ func (code Code) CappDecode() (op CodeCappOp, match, mask CodeIR) {
 // IoDecode decodes and returns the I/O operation, channel, and argument.
 func (code Code) IoDecode() (op CodeIoOp, channel CodeChannel, arg CodeIR) {
 	word := uint16(code.Word)
-	op = CodeIoOp((word >> 8) & 0x7)
+	op = CodeIoOp((word >> 8) & 0x3)
 	channel = CodeChannel((word >> 4) & 0xf)
 	arg = CodeIR((word >> 0) & 0xf)
+	return
+}
+
+// CoprocDecode decodes and returns the coprocessor operation, value, and mask.
+func (code Code) CoprocDecode() (op CodeCoprocId, value, mask CodeIR) {
+	word := uint16(code.Word)
+	op = CodeCoprocId((word >> 8) & 0x3)
+	value = CodeIR((word >> 4) & 0xf)
+	mask = CodeIR((word >> 0) & 0xf)
 	return
 }
 
@@ -227,6 +257,8 @@ func (code Code) ImmediateNeed() int {
 	switch class {
 	case OP_CAPP:
 		_, a, b = code.CappDecode()
+	case OP_COPROC:
+		_, a, b = code.CoprocDecode()
 	case OP_IO:
 		_, _, a = code.IoDecode()
 	case OP_ALU:
@@ -263,6 +295,9 @@ func (code Code) String() (out string) {
 	case OP_CAPP:
 		op, match, mask := code.CappDecode()
 		str = fmt.Sprintf("%v.%v.%v", op.String(), match.String(), mask.String())
+	case OP_COPROC:
+		cp, value, mask := code.CoprocDecode()
+		str = fmt.Sprintf("%v.%v.%v", cp.String(), value.String(), mask.String())
 	case OP_IO:
 		op, channel, arg := code.IoDecode()
 		str = fmt.Sprintf("%v.%v.%v", op.String(), channel.String(), arg.String())

@@ -228,15 +228,21 @@ func FuzzCpu(f *testing.F) {
 						switch ch {
 						case CHANNEL_ID_TAPE:
 							assert.NoError(err, code_str)
+						default:
+							// expected error
 						}
 					case IO_OP_STORE:
 						switch ch {
 						case CHANNEL_ID_TAPE:
 							assert.NoError(err, code_str)
+						default:
+							// expected error
 						}
 					default:
 						// expected error
 					}
+				case OP_COPROC:
+					// All possible coprocessor opcodes are valid.
 				case OP_CAPP:
 					op, match, mask := code.CappDecode()
 					switch {
@@ -341,6 +347,11 @@ func FuzzCpu(f *testing.F) {
 			if dst == IR_IP {
 				next_ip = expected
 			}
+		case OP_COPROC:
+			_, ir_value, ir_mask := code.CoprocDecode()
+			_, imms := get_value(ir_value, imms)
+			_, _ = get_value(ir_mask, imms)
+			// No check needed.
 		case OP_CAPP:
 			op, ir_match, ir_mask := code.CappDecode()
 			value, imms := get_value(ir_match, imms)
@@ -446,8 +457,12 @@ func FuzzCpu(f *testing.F) {
 				cond = int32(a) != int32(b)
 			case COND_OP_LT:
 				cond = int32(a) < int32(b)
+			case COND_OP_GT:
+				cond = int32(a) > int32(b)
 			case COND_OP_LE:
 				cond = int32(a) <= int32(b)
+			case COND_OP_GE:
+				cond = int32(a) >= int32(b)
 			}
 			assert.Equal(cond, cpu.Cond, code_str)
 		default:

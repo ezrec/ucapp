@@ -185,6 +185,40 @@ func TestAssemblerAlu(t *testing.T) {
 	opEqual(t, expected, prog.Opcodes)
 }
 
+func TestAssemblerCoproc(t *testing.T) {
+	assert := assert.New(t)
+
+	asm := &Assembler{}
+	program := []string{
+		"coproc cp0 5000",
+		"coproc cp3 r0 r1",
+	} // ip = 2
+
+	asm.Clear()
+	err := asm.Parse(strings.NewReader(strings.Join(program, "\n")))
+	assert.NoError(err)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	prog, err := asm.Link()
+	assert.NoError(err)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	assert.NotNil(prog)
+
+	expected := []Opcode{
+		{"stdin", 1, 0, []string{"coproc", "cp0", "5000"}, []Code{
+			MakeCodeCoproc(COND_ALWAYS, COPROC_ID_0, IR_IMMEDIATE_16, IR_CONST_FFFFFFFF, 5000)}, ""},
+		{"stdin", 2, 1, []string{"coproc", "cp3", "r0", "r1"}, []Code{
+			MakeCodeCoproc(COND_ALWAYS, COPROC_ID_3, IR_REG_R0, IR_REG_R1)}, ""},
+	}
+
+	opEqual(t, expected, prog.Opcodes)
+}
+
 func TestAssemblerEqu(t *testing.T) {
 	assert := assert.New(t)
 
@@ -433,6 +467,10 @@ func TestAssemblerErrSyntax(t *testing.T) {
 		{"alu add r0", 1},
 		{"alu add r0 1 2", 1},
 		{"alu add r0 r9", 1},
+		{"coproc", 1},
+		{"coproc 0", 1},
+		{"coproc false", 1},
+		{"coproc cp0", 1},
 	}
 
 	for _, entry := range table {
