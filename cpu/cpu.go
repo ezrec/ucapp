@@ -37,6 +37,12 @@ type CpuChannel struct {
 	Response chan uint32
 }
 
+// Coprocessor executes on the CAPP, has read-only register access,
+// and may (optionally) modify the condition flag.
+type Coprocessor interface {
+	Execute(arg uint32, cp *capp.Capp, reg [6]uint32, cond bool) (new_cond bool, err error)
+}
+
 // Cpu is the simulation context for the control CPU attached to the CAPP
 type Cpu struct {
 	Verbose bool // Set to enable verbose logging.
@@ -54,12 +60,27 @@ type Cpu struct {
 	Ticks int // CPU ticks counter.
 
 	channel [8](*CpuChannel) // IO channels.
+
+	Coproc [4](Coprocessor) // Coprocessors
+}
+
+type invalidCoproc struct {
+}
+
+func (ic *invalidCoproc) Execute(arg uint32, cp *capp.Capp, reg [6]uint32, cond bool) (new_cond bool, err error) {
+	new_cond = false
+	err = ErrOpcodeCoproc
+	return
 }
 
 // NewCpu creates a new CPU with a specifically sized CAPP.
 func NewCpu(count uint) (cpu *Cpu) {
 	cpu = &Cpu{
 		Capp: capp.NewCapp(count),
+	}
+
+	for n := range 4 {
+		cpu.Coproc[n] = &invalidCoproc{}
 	}
 
 	return
@@ -303,7 +324,9 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 	case IP_MODE_REG:
 		reg := int(cpu.Ip & ^IP_MODE_MASK)
 		if reg >= len(cpu.Register) {
-			log.Printf("Ip 0x%x > register len 0x%x", cpu.Ip, len(cpu.Register))
+			if cpu.Verbose {
+				log.Printf("Ip 0x%x > register len 0x%x", cpu.Ip, len(cpu.Register))
+			}
 			err = ErrIpEmpty
 			return
 		}
@@ -311,7 +334,9 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 	case IP_MODE_STACK:
 		opcode, ok := cpu.Stack.Pop()
 		if !ok {
-			log.Printf("Ip 0x%x > stack empty", cpu.Ip)
+			if cpu.Verbose {
+				log.Printf("Ip 0x%x > stack empty", cpu.Ip)
+			}
 			err = ErrIpEmpty
 			return
 		}
@@ -340,7 +365,9 @@ func (cpu *Cpu) FetchCode() (code Code, err error) {
 
 		cpu.Capp.Verbose = cpu.Verbose
 	default:
-		log.Printf("Ip 0x%x > unknown source", cpu.Ip)
+		if cpu.Verbose {
+			log.Printf("Ip 0x%x > unknown source", cpu.Ip)
+		}
 		err = ErrIpEmpty
 		return
 	}
@@ -560,6 +587,27 @@ func (cpu *Cpu) Execute(code Code) (err error) {
 			err = errors.Join(ErrOpcodeCapp, ErrOpcodeOp)
 			return
 		}
+	case OP_COPROC:
+		cp, value, mask := code.CoprocDecode()
+		var val uint32
+		var msk uint32
+		val, imms, err = cpu.getValue(value, imms)
+		if err != nil {
+			err = errors.Join(ErrOpcodeCoproc, ErrOpcodeArg1, err)
+			return
+		}
+		msk, imms, err = cpu.getValue(mask, imms)
+		if err != nil {
+			err = errors.Join(ErrOpcodeCoproc, ErrOpcodeArg2, err)
+			return
+		}
+		var cond bool
+		cond, err = cpu.Coproc[cp].Execute(val&msk, cpu.Capp, cpu.Register, cpu.Cond)
+		if err != nil {
+			err = errors.Join(ErrOpcodeCoproc, err)
+			return
+		}
+		cpu.Cond = cond
 	case OP_IO:
 		op, dst, ir_value := code.IoDecode()
 		var value uint32

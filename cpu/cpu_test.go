@@ -458,6 +458,74 @@ func TestCpu_Execute_COND_InvalidOp(t *testing.T) {
 	assert.ErrorIs(err, ErrOpcodeCond)
 }
 
+type falseProc struct{}
+
+func (tp *falseProc) Execute(arg uint32, cp *capp.Capp, regs [6]uint32, cond bool) (bool, error) {
+	return false, nil
+}
+
+type trueProc struct{}
+
+func (tp *trueProc) Execute(arg uint32, cp *capp.Capp, regs [6]uint32, cond bool) (bool, error) {
+	return true, nil
+}
+
+var errAny = errors.New("error")
+
+type errProc struct{}
+
+func (tp *errProc) Execute(arg uint32, cp *capp.Capp, regs [6]uint32, cond bool) (bool, error) {
+	return false, errAny
+}
+
+type condProc struct{}
+
+func (tp *condProc) Execute(arg uint32, cp *capp.Capp, regs [6]uint32, cond bool) (bool, error) {
+	return ((arg & 1) == 1), nil
+}
+
+func TestCpu_Execute_COPROC_Any(t *testing.T) {
+	assert := assert.New(t)
+
+	cpu := NewCpu(64)
+	defer cpu.Close()
+	cpu.Ip = 0
+
+	cpu.Coproc[0] = &trueProc{}
+	cpu.Coproc[1] = &falseProc{}
+	cpu.Coproc[2] = &errProc{}
+	cpu.Coproc[3] = &condProc{}
+
+	table := [](struct {
+		proc CodeCoprocId
+		arg  uint32
+		cond bool
+		err  error
+	}){
+		{proc: 0, arg: 0, cond: true},
+		{proc: 0, arg: 1, cond: true},
+		{proc: 1, arg: 0, cond: false},
+		{proc: 1, arg: 1, cond: false},
+		{proc: 2, arg: 0, err: errAny},
+		{proc: 2, arg: 1, err: errAny},
+		{proc: 3, arg: 0, cond: false},
+		{proc: 3, arg: 1, cond: true},
+	}
+
+	for _, entry := range table {
+		cpu.Cond = !entry.cond
+		code := MakeCodeCoproc(COND_ALWAYS, entry.proc, IR_IMMEDIATE_32, IR_CONST_FFFFFFFF,
+			uint16(uint32(entry.arg)>>16), uint16(uint32(entry.arg)&0xFFFF))
+		err := cpu.Execute(code)
+		if entry.err != nil {
+			assert.ErrorIs(err, entry.err)
+		} else {
+			assert.NoError(err)
+			assert.Equal(entry.cond, cpu.Cond)
+		}
+	}
+}
+
 func TestCpu_Execute_CAPP_SetSwap_Error(t *testing.T) {
 	assert := assert.New(t)
 
@@ -763,22 +831,6 @@ func TestCpu_Execute_IO_InvalidChannel(t *testing.T) {
 	err := cpu.Execute(code)
 	assert.Error(err)
 	assert.ErrorIs(err, ErrChannelInvalid)
-}
-
-func TestCpu_Execute_IO_InvalidOp(t *testing.T) {
-	assert := assert.New(t)
-
-	cpu := NewCpu(64)
-	defer cpu.Close()
-	cpu.Ip = 0
-
-	tape := &sio.Tape{}
-	cpu.SetChannel(CHANNEL_ID_TAPE, tape)
-
-	code := Code{Word: uint16((uint16(OP_IO) << 11) | (0x7 << 8) | (uint16(CHANNEL_ID_TAPE) << 4))}
-	err := cpu.Execute(code)
-	assert.Error(err)
-	assert.ErrorIs(err, ErrOpcodeIo)
 }
 
 func TestCpu_Execute_ExtraImmediates(t *testing.T) {

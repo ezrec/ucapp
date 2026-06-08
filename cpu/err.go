@@ -19,12 +19,14 @@ var (
 	ErrChannelInvalid = errors.New(f("channel invalid"))
 	ErrChannelPartial = errors.New(f("partial channel read"))
 	ErrChannelFull    = errors.New(f("channel full"))
+	ErrCoprocInvalid  = errors.New(f("coproc invalid"))
 
 	// Instruction decode errors
 	ErrOpcodeDecode = errors.New(f("decode"))
 	ErrOpcodeAlu    = errors.New(f("alu"))
 	ErrOpcodeCond   = errors.New(f("cond"))
 	ErrOpcodeCapp   = errors.New(f("capp"))
+	ErrOpcodeCoproc = errors.New(f("cp"))
 	ErrOpcodeIo     = errors.New(f("io"))
 	ErrOpcodeOp     = errors.New(f("op"))
 	ErrOpcodeArg1   = errors.New(f("arg1"))

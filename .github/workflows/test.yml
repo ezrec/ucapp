@@ -26,3 +26,6 @@ jobs:
 
       - name: Run staticcheck
         run: go tool staticcheck ./...
+
+      - name: Run exhaustive
+        run: go tool exhaustive -default-signifies-exhaustive ./...

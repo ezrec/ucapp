@@ -24,13 +24,6 @@ import (
 //    - Link() resolves all forward references and produces final program
 //    - Duplicate labels, equates, and macros are detected across Parse() calls
 //    - Filename tracking works correctly with os.File's Name() method
-//
-// 3. RECOMMENDATION:
-//    Add a check at the start of Parse() to enforce ready==true:
-//        if !asm.ready {
-//            return ErrNotReady
-//        }
-//    This would prevent all three bug scenarios above.
 
 // TestAssemblerMultiParse validates calling Parse() multiple times between Clear() and Link().
 func TestAssemblerMultiParse(t *testing.T) {
