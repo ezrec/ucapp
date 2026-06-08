@@ -2,16 +2,16 @@
 
 The μCAPP can access a number of I/O peripherals, which are mapped as follows:
 
-| Channel | Type | Purpose |
-| ---     | ---  | ---     |
-| 0       | Temp | Temporary store |
+| Channel | Type  | Purpose |
+| ---     | ---   | ---     |
+| 0       | Temp  | Temporary store |
 | 1       | Depot | Persistent storage |
-| 2       | Tape | Input/Output linear tape |
-| 3       | VT   | Virtual Terminal   |
-| 4       | n/a | unused |
-| 5       | n/a | unused |
-| 6       | debug | Debug channel |
-| 7       | rom | OS ROM image |
+| 2       | Tape  | Input/Output linear tape |
+| 3       | VT    | Virtual Terminal   |
+| 4       | n/a   | _unused_ |
+| 5       | n/a   | _unused_ |
+| 6       | Debug | Debug channel |
+| 7       | ROM   | OS ROM image |
 
 ## Temp
 
@@ -38,6 +38,7 @@ alert depot ((0x1 << 23) | (1 << 8) | 1) ; Rewind current ring's write pointer.
 ```
 
 NOTE: A read of a ring cannot go past its current write pointer.
+NOTE: The write pointer is persistent, and can be considered as representing the 'length' of the ring.
 
 ### Drum
 
