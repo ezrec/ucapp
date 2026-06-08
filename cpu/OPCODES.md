@@ -49,8 +49,8 @@ CAPP is modified later it does _not_ affect the running program.
 
   1100 - const 0
   1101 - const 0xffffffff
-  1110 - immediate & 0xffff; immediate >> 16
-  1111 - immediate; immediate >>= 32
+  1110 - immediate & 0xffff; then immediate >>= 16
+  1111 - immediate; then immediate >>= 32
 
 ## Channels
 
@@ -61,14 +61,14 @@ CAPP is modified later it does _not_ affect the running program.
   100 - UNUSED
   101 - UNUSED
   110 - UNUSED
-  111 - boot rom
+  111 - monitor
 
 ## Channel Ops
 
-  000 - fetch DMA to CAPP TAG items
-  001 - store DMA from CAPP TAG items
-  010 - await an alert.
-  011 - alert the channel with a value/mask pair.
+  00 - fetch DMA to CAPP TAG items
+  01 - store DMA from CAPP TAG items
+  10 - await an alert.
+  11 - alert the channel with a value/mask pair.
 
 ## ALU Arithmetic Ops
 
@@ -138,13 +138,16 @@ MMMM: Mask IR
 AAAA: Arg IR
 IIII: Immediate value to shift in
 ```
-.alu.OP R V           16 - cc 000 aaa 0rrr VVVV
-.if.OP A B            18 - cc 001 iii AAAA BBBB
-.list.OP V M          16 - cc 010 lll VVVV MMMM
-.io OP CHANNEL ARG    16 - cc 011 0oo 0CCC AAAA
+.alu.OP.R.V           16 - cc 000 aaa 0rrr VVVV
+.if.OP.A.B            18 - cc 001 iii AAAA BBBB
+.list.OP.V.M          16 - cc 010 lll VVVV MMMM
+.io.OP.CHANNEL.ARG    16 - cc 011 0oo 0CCC AAAA
+.coproc.N.V.M         16 - cc 011 1nn VVVV MMMM
 .imm 0xNNN            16 - aa aaa aaa aaaa aaaa  imm = (imm << 16)
     ; NOTE: .imm follows the opcode, and is in the same OPCODE PC index!
 ```
+
+coproc 1 r0
 
 fetch CHANNEL MASK
 store CHANNEL MASK

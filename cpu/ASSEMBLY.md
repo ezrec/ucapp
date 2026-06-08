@@ -114,9 +114,9 @@ Untag SELECTED and TAGGED cells whose bits in MASK do not match
 the corresponding bits in MATCH.
 
 | Argument | Class |
-| --- | --- |
-| MATCH | Immediate or Register |
-| MASK | Immediate or Register |
+| ---      | --- |
+| MATCH    | Immediate or Register |
+| MASK     | Immediate or Register |
 
 NOTE: If MASK not specified, MASK defaults to 0xFFFFFFFF,
       and only value that exactly match MATCH will be left in the list.
@@ -160,12 +160,12 @@ following format:
 
 `alu OP TARGET VALUE [MASK]`
 
-| Argument | Comment |
-| --- | --- |
-| OP | ALU Operation |
-| TARGET | Writable Register |
-| VALUE | Immediate or Register |
-| MASK  | Immediate or Register |
+| Argument | Comment               |
+| ---      | ---                   |
+| OP       | ALU Operation         |
+| TARGET   | Writable Register     |
+| VALUE    | Immediate or Register |
+| MASK     | Immediate or Register |
 
 ALU operations modify the target by the specified operation, using the VALUE anded with the MASK as the operand.
 
@@ -217,11 +217,11 @@ of the CPU, used for conditional execution of instructions.
 
 `if COND SRCA SRCB`
 
-| Argument | Comment |
-| --- | --- |
-| COND | Conditional Operation |
-| SRCA | Immediate or Register |
-| SRCB | Immediate or Register |
+| Argument | Comment               |
+| ---      | ---                   |
+| COND     | Conditional Operation |
+| SRCA     | Immediate or Register |
+| SRCB     | Immediate or Register |
 
 NOTE: For all operations, SRCA and SRCB are treated as signed 32-bit integers.
 
@@ -276,24 +276,24 @@ from the device.
 
 `io OP CHANNEL ARG1 ARG2`
 
-| Argument | Comment |
-| --- | --- |
-| OP | I/O Operation. |
-| CHANNEL | Channel ID number. |
-| ARG1 | Immediate or Register. |
-| ARG2 | Immediate or Register. |
+| Argument | Comment                |
+| ---      | ---                    |
+| OP       | I/O Operation.         |
+| CHANNEL  | Channel ID number.     |
+| ARG1     | Immediate or Register. |
+| ARG2     | Immediate or Register. |
 
 ### I/O Channels
 
-| Name | ID | Bit Width | Comment |
-| --- | --- | --- | --- |
-| temp | 0 | 1 | Temporary IO channel. |
-| depot | 1 | 1 | Drum and Ring depot. |
-| tape | 2 | 1 | Linear input/output tape. |
-| vt | 3 | 24 | Virtual Terminal. |
-| monitor | 4 | 32 | Boot ROM and debug monitor. |
+| Name    | ID  | Bit Width | Comment                      |
+| ---     | --- | ---       | ---                          |
+| temp    | 0   | 1         | Temporary IO channel.        |
+| depot   | 1   | 1         | Drum and Ring depot.         |
+| tape    | 2   | 1         | Linear input/output tape.    |
+| vt      | 3   | 8f/24s    | Virtual Terminal.            |
+| monitor | 7   | 32        | Boot ROM and inter-drum IPC. |
 
-For more details on channel specific IO features, see [channel/README.md](channel/README.md)
+For more details on channel specific IO features, see [sio/README.md](sio/README.md)
 
 ### I/O Operations
 
@@ -346,6 +346,17 @@ various alert codes.
 
 Halt the CPU until data is available on the channel. If REG is
 a valid writable register, then the awaited value is stored in REG.
+
+### Coprocessors
+
+#### cp N VALUE [MASK]
+
+Invoke co-processor N, with (VALUE & MASK) as the calling argument.
+A coprocessor has read/write access to the CAPP memory, and read-only
+access to the registers of the processor.
+
+The coprocessor may (optionally) modify the condition flag; please read
+the coprocessor specific documentation for details.
 
 ### Flow Control
 

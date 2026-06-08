@@ -2,16 +2,16 @@
 
 The μCAPP can access a number of I/O peripherals, which are mapped as follows:
 
-| Channel | Type  | Purpose |
-| ---     | ---   | ---     |
-| 0       | Temp  | Temporary store |
-| 1       | Depot | Persistent storage |
-| 2       | Tape  | Input/Output linear tape |
-| 3       | VT    | Virtual Terminal   |
-| 4       | n/a   | _unused_ |
-| 5       | n/a   | _unused_ |
-| 6       | Debug | Debug channel |
-| 7       | ROM   | OS ROM image |
+| Channel | Name    | Purpose                  |
+| ---     | ---     | ---                      |
+| 0       | temp    | Temporary store          |
+| 1       | depot   | Persistent storage       |
+| 2       | tape    | Input/Output linear tape |
+| 3       | vt      | Virtual Terminal         |
+| 4       | -       | _unused_                 |
+| 5       | -       | _unused_                 |
+| 6       | -       | _unused_                 |
+| 7       | monitor | OS ROM image and IPC     |
 
 ## Temp
 
